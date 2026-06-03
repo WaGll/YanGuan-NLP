@@ -1,0 +1,52 @@
+# =============================================================================
+# GradCareer-CommentAnalysis 后端依赖
+# Phase 1 - Foundation
+# =============================================================================
+
+# --- 文本处理与数据分析 ---
+pandas>=2.2.0
+numpy>=1.26.0
+jieba>=0.42.1
+snownlp>=0.12.3
+scikit-learn>=1.5.0
+gensim>=4.3.0
+
+# --- 可视化 ---
+pyLDAvis>=3.4.0
+matplotlib>=3.8.0
+wordcloud>=1.9.0
+seaborn>=0.13.0
+plotly>=5.18.0
+networkx>=3.3
+
+# --- 聚类 ---
+hdbscan>=0.8.33
+
+# --- 编码检测 ---
+chardet>=5.2.0
+
+# --- 可选：BERTopic 主题建模 ---
+# bertopic>=0.16.0
+
+# --- Web 框架 ---
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+
+# --- 数据库 ---
+sqlalchemy[asyncio]>=2.0.30
+aiosqlite>=0.20.0
+
+# --- 数据验证 ---
+pydantic>=2.7.0
+pydantic-settings>=2.3.0
+
+# --- 数据库迁移 ---
+alembic>=1.13.0
+
+# --- 文件上传解析 ---
+python-multipart>=0.0.9
+
+# --- 测试 ---
+pytest>=8.2.0
+pytest-asyncio>=0.23.0
+httpx>=0.27.0

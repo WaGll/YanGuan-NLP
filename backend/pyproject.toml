@@ -1,0 +1,103 @@
+# =============================================================================
+# GradCareer-CommentAnalysis 项目配置
+# =============================================================================
+
+[project]
+name = "gradcareer-comment-analysis"
+version = "0.1.0"
+description = "高校毕业生就业评论分析系统 - 后端"
+requires-python = ">=3.12"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "GradCareer Team" },
+]
+dependencies = [
+    "pandas>=2.2.0",
+    "numpy>=1.26.0",
+    "jieba>=0.42.1",
+    "snownlp>=0.12.3",
+    "scikit-learn>=1.5.0",
+    "gensim>=4.3.0",
+    "pyLDAvis>=3.4.0",
+    "matplotlib>=3.8.0",
+    "wordcloud>=1.9.0",
+    "seaborn>=0.13.0",
+    "plotly>=5.18.0",
+    "networkx>=3.3",
+    "hdbscan>=0.8.33",
+    "chardet>=5.2.0",
+    "fastapi>=0.111.0",
+    "uvicorn[standard]>=0.30.0",
+    "sqlalchemy[asyncio]>=2.0.30",
+    "aiosqlite>=0.20.0",
+    "pydantic>=2.7.0",
+    "pydantic-settings>=2.3.0",
+    "alembic>=1.13.0",
+    "python-multipart>=0.0.9",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.2.0",
+    "pytest-asyncio>=0.23.0",
+    "httpx>=0.27.0",
+]
+optional = [
+    "bertopic>=0.16.0",
+]
+
+# =============================================================================
+# Ruff 代码检查配置
+# =============================================================================
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "B",   # flake8-bugbear
+    "C4",  # flake8-comprehensions
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # 行过长，由 formatter 处理
+]
+
+[tool.ruff.format]
+quote-style = "double"
+indent-style = "space"
+docstring-code-format = true
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
+
+# =============================================================================
+# Mypy 类型检查配置
+# =============================================================================
+[tool.mypy]
+strict = true
+python_version = "3.12"
+ignore_missing_imports = true
+exclude = ["tests/"]
+
+# =============================================================================
+# Pytest 配置
+# =============================================================================
+[tool.pytest.ini_options]
+minversion = "8.0"
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = [
+    "-v",
+    "--tb=short",
+    "--strict-markers",
+]
+markers = [
+    "slow: 标记慢速测试",
+    "integration: 标记集成测试",
+]
