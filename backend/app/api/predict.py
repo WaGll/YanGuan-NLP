@@ -53,7 +53,7 @@ async def predict_gb(
     """使用梯度提升模型进行单条情感预测。"""
     try:
         result = predict(body.text, model)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     return APIResponse(data=GBPredictResult(**result))
 
@@ -66,7 +66,7 @@ async def predict_gb_batch(
     """使用梯度提升模型进行批量情感预测。"""
     try:
         items = predict_batch(body.texts, model)
-    except FileNotFoundError as e:
+    except (FileNotFoundError, ValueError) as e:
         raise HTTPException(status_code=400, detail=str(e))
     results = [GBBatchPredictItem(**it) for it in items]
     return APIResponse(data={

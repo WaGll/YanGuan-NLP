@@ -31,6 +31,8 @@ POSITIVE_THRESHOLD = 0.7
 MODEL_DIR = settings.data_dir / "models"
 MODEL_DIR.mkdir(parents=True, exist_ok=True)
 
+ALLOWED_MODELS = {"best", "xgboost", "lightgbm", "catboost"}
+
 
 def _make_label(score: float) -> str:
     """将 SnowNLP 得分映射为三分类标签。"""
@@ -215,6 +217,9 @@ def predict(text: str, model_name: str = "best") -> dict:
     Returns:
         {sentiment_class, probabilities, model_used}
     """
+    if model_name not in ALLOWED_MODELS:
+        raise ValueError(f"无效模型名: {model_name}，可选: {sorted(ALLOWED_MODELS)}")
+
     model_path = MODEL_DIR / f"gb_sentiment_{model_name}.joblib"
     le_path = MODEL_DIR / "gb_sentiment_label_encoder.joblib"
 
@@ -250,6 +255,9 @@ def predict_batch(texts: list[str], model_name: str = "best") -> list[dict]:
     Returns:
         [{index, text, sentiment_class, probabilities}, ...]
     """
+    if model_name not in ALLOWED_MODELS:
+        raise ValueError(f"无效模型名: {model_name}，可选: {sorted(ALLOWED_MODELS)}")
+
     model_path = MODEL_DIR / f"gb_sentiment_{model_name}.joblib"
     le_path = MODEL_DIR / "gb_sentiment_label_encoder.joblib"
 
