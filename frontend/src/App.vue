@@ -1,46 +1,46 @@
 <template>
-  <el-container class="app-container">
-    <el-aside :width="isCollapsed ? '64px' : '220px'" class="app-sidebar">
-      <AppSidebar :collapsed="isCollapsed" @toggle="isCollapsed = !isCollapsed" />
-    </el-aside>
-    <el-container>
-      <el-header class="app-header">
-        <AppHeader :collapsed="isCollapsed" @toggle="isCollapsed = !isCollapsed" />
-      </el-header>
-      <el-main class="app-main">
+  <div class="app-shell">
+    <!-- Floating header -->
+    <AppHeader />
+
+    <div class="app-body">
+      <!-- Floating icon rail -->
+      <AppSidebar />
+
+      <!-- Main content -->
+      <main class="app-main">
         <router-view />
-      </el-main>
-    </el-container>
-  </el-container>
+      </main>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
-
-const isCollapsed = ref(false)
 </script>
 
 <style scoped>
-.app-container {
+.app-shell {
   height: 100vh;
-}
-.app-sidebar {
-  background-color: #304156;
-  transition: width 0.3s;
+  background: #f3f4f6;
+  padding: 48px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
   overflow: hidden;
 }
-.app-header {
-  background: #fff;
-  border-bottom: 1px solid #e6e6e6;
-  padding: 0 20px;
+
+.app-body {
+  flex: 1;
   display: flex;
-  align-items: center;
+  gap: 20px;
+  min-height: 0;
 }
+
 .app-main {
-  background: #f5f7fa;
-  padding: 20px;
+  flex: 1;
   overflow-y: auto;
+  min-width: 0;
 }
 </style>

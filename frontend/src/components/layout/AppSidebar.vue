@@ -1,114 +1,187 @@
 <template>
-  <div class="sidebar-wrapper">
-    <div class="sidebar-logo" v-if="!collapsed">
-      <span class="logo-text">GradCareer</span>
+  <nav class="icon-rail">
+    <!-- Logo -->
+    <router-link to="/dashboard" class="icon-rail__logo">
+      <span class="icon-rail__logo-text">YG</span>
+    </router-link>
+
+    <!-- Navigation icons -->
+    <div class="icon-rail__nav">
+      <router-link
+        v-for="item in navItems"
+        :key="item.path"
+        :to="item.path"
+        class="icon-rail__item"
+        :class="{ 'icon-rail__item--active': isActive(item.path) }"
+        :title="item.label"
+      >
+        <el-icon :size="20">
+          <component :is="item.icon" />
+        </el-icon>
+      </router-link>
     </div>
-    <div class="sidebar-logo sidebar-logo--mini" v-else>
-      <span class="logo-text--mini">GC</span>
+
+    <!-- Divider -->
+    <div class="icon-rail__divider"></div>
+
+    <!-- Utility icons -->
+    <div class="icon-rail__utils">
+      <button class="icon-rail__item" title="Search (⌘K)">
+        <el-icon :size="18"><Search /></el-icon>
+      </button>
+      <button class="icon-rail__item" title="Settings">
+        <el-icon :size="18"><Setting /></el-icon>
+      </button>
     </div>
-    <el-menu
-      :default-active="activeMenu"
-      :collapse="collapsed"
-      background-color="#304156"
-      text-color="#bfcbd9"
-      active-text-color="#409eff"
-      router
-    >
-      <el-menu-item index="/dashboard">
-        <el-icon><Odometer /></el-icon>
-        <template #title>仪表盘</template>
-      </el-menu-item>
-      <el-menu-item index="/sentiment">
-        <el-icon><TrendCharts /></el-icon>
-        <template #title>情感分析</template>
-      </el-menu-item>
-      <el-menu-item index="/topics">
-        <el-icon><Collection /></el-icon>
-        <template #title>主题分析</template>
-      </el-menu-item>
-      <el-menu-item index="/topic-sentiment">
-        <el-icon><Grid /></el-icon>
-        <template #title>主题×情感</template>
-      </el-menu-item>
-      <el-menu-item index="/trends">
-        <el-icon><DataLine /></el-icon>
-        <template #title>趋势分析</template>
-      </el-menu-item>
-      <el-menu-item index="/network">
-        <el-icon><Connection /></el-icon>
-        <template #title>共现网络</template>
-      </el-menu-item>
-      <el-menu-item index="/predict">
-        <el-icon><MagicStick /></el-icon>
-        <template #title>实时预测</template>
-      </el-menu-item>
-    </el-menu>
-  </div>
+
+    <!-- User -->
+    <div class="icon-rail__user">
+      <span class="icon-rail__avatar">WG</span>
+    </div>
+  </nav>
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import {
   Odometer,
-  TrendCharts,
   Collection,
-  Grid,
+  TrendCharts,
   DataLine,
   Connection,
   MagicStick,
+  Search,
+  Setting,
 } from '@element-plus/icons-vue'
 
-const props = defineProps<{
-  collapsed: boolean
-}>()
-
-const emit = defineEmits<{
-  toggle: []
-}>()
-
 const route = useRoute()
-const activeMenu = computed(() => route.path)
+
+const navItems = [
+  { path: '/dashboard', label: 'Overview',   icon: Odometer },
+  { path: '/topics',    label: 'Topics',     icon: Collection },
+  { path: '/sentiment', label: 'Sentiment',  icon: TrendCharts },
+  { path: '/trends',    label: 'Trends',     icon: DataLine },
+  { path: '/network',   label: 'Network',    icon: Connection },
+  { path: '/predict',   label: 'Forecast',   icon: MagicStick },
+]
+
+function isActive(path: string): boolean {
+  if (path === '/dashboard') return route.path === '/dashboard' || route.path === '/'
+  return route.path.startsWith(path)
+}
 </script>
 
 <style scoped>
-.sidebar-wrapper {
-  height: 100%;
+.icon-rail {
+  width: 72px;
+  flex-shrink: 0;
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 2px 12px rgba(0, 0, 0, 0.06);
   display: flex;
   flex-direction: column;
+  align-items: center;
+  padding: 20px 0;
+  gap: 2px;
 }
 
-.sidebar-logo {
-  height: 60px;
+/* ── Logo ── */
+.icon-rail__logo {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  background: #16a34a;
+  color: #ffffff;
   display: flex;
   align-items: center;
   justify-content: center;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  text-decoration: none;
+  margin-bottom: 12px;
 }
 
-.logo-text {
-  font-size: 20px;
+.icon-rail__logo-text {
+  font-size: 14px;
   font-weight: 700;
-  color: #fff;
-  letter-spacing: 1px;
+  letter-spacing: -0.3px;
 }
 
-.sidebar-logo--mini {
-  height: 60px;
+/* ── Nav items ── */
+.icon-rail__nav {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
-}
-
-.logo-text--mini {
-  font-size: 18px;
-  font-weight: 700;
-  color: #fff;
-}
-
-.el-menu {
-  border-right: none;
+  gap: 4px;
   flex: 1;
-  overflow-y: auto;
+}
+
+.icon-rail__item {
+  width: 44px;
+  height: 44px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #64748b;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  text-decoration: none;
+  border: none;
+  background: transparent;
+}
+
+.icon-rail__item:hover {
+  background: #f0fdf4;
+  color: #16a34a;
+}
+
+.icon-rail__item--active {
+  background: #16a34a;
+  color: #ffffff;
+}
+
+.icon-rail__item--active:hover {
+  background: #15803d;
+  color: #ffffff;
+}
+
+/* ── Divider ── */
+.icon-rail__divider {
+  width: 28px;
+  height: 1px;
+  background: #e8eaed;
+  margin: 4px 0;
+}
+
+/* ── Utils ── */
+.icon-rail__utils {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* ── User avatar ── */
+.icon-rail__user {
+  margin-top: 8px;
+}
+
+.icon-rail__avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  background: #f1f5f9;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.icon-rail__avatar:hover {
+  background: #e2e8f0;
+  color: #1e293b;
 }
 </style>

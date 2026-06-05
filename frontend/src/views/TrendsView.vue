@@ -7,107 +7,140 @@
       <div class="filter-bar">
         <div class="filter-item">
           <span class="filter-label">趋势类型：</span>
-          <el-select v-model="trendType" placeholder="选择趋势类型" @change="fetchTrends">
+          <el-select v-model="store.seriesType" placeholder="选择趋势类型" @change="store.fetchTrends()">
             <el-option label="情感趋势" value="sentiment" />
             <el-option label="关键词趋势" value="keyword" />
             <el-option label="主题趋势" value="topic" />
           </el-select>
         </div>
         <div class="filter-item">
-          <span class="filter-label">日期范围：</span>
-          <el-date-picker
-            v-model="dateRange"
-            type="daterange"
-            range-separator="至"
-            start-placeholder="开始日期"
-            end-placeholder="结束日期"
-            format="YYYY-MM-DD"
-            value-format="YYYY-MM-DD"
-            @change="fetchTrends"
-          />
+          <span class="filter-label">时间粒度：</span>
+          <el-select v-model="store.granularity" placeholder="时间粒度" @change="store.fetchTrends()">
+            <el-option label="按日" value="day" />
+            <el-option label="按周" value="week" />
+            <el-option label="按月" value="month" />
+            <el-option label="按年" value="year" />
+          </el-select>
         </div>
       </div>
     </el-card>
 
     <!-- 加载状态 -->
-    <template v-if="loading">
+    <template v-if="store.loading">
       <LoadingCard :rows="8" />
     </template>
 
     <!-- 错误状态 -->
     <el-alert
-      v-else-if="error"
-      :title="error"
+      v-else-if="store.error"
+      :title="store.error"
       type="error"
       show-icon
       :closable="false"
       style="margin-bottom: 20px"
     />
 
+    <!-- 空数据 -->
+    <el-empty
+      v-else-if="!store.data || store.data.buckets.length === 0"
+      description="暂无趋势数据"
+    />
+
     <!-- 趋势图表 -->
-    <template v-else>
-      <div v-if="trendSeriesList.length === 0" class="empty-state">
-        <el-empty description="暂无趋势数据" />
-      </div>
-      <div v-else>
-        <el-card
-          v-for="(series, index) in trendSeriesList"
-          :key="index"
-          style="margin-bottom: 20px"
-        >
-          <TrendLineChart
-            :data="series.data"
-            :title="series.title"
+    <template v-else-if="store.data">
+      <el-card style="margin-bottom: 20px">
+        <TrendLineChart
+          :data="trendChartData"
+          :title="`${seriesTypeLabel}趋势 (${granularityLabel})`"
+        />
+      </el-card>
+
+      <!-- 统计摘要 -->
+      <el-row :gutter="20" style="margin-top: 20px">
+        <el-col :xs="24" :sm="8">
+          <StatCard
+            title="数据点数"
+            :value="store.data.total_points"
+            icon="TrendCharts"
+            color="#409eff"
           />
-        </el-card>
-      </div>
+        </el-col>
+        <el-col :xs="24" :sm="8">
+          <StatCard
+            title="平均情感得分"
+            :value="avgSentimentStr"
+            icon="DataLine"
+            color="#e6a23c"
+          />
+        </el-col>
+        <el-col :xs="24" :sm="8">
+          <StatCard
+            title="总评论数"
+            :value="totalCommentCount"
+            icon="ChatDotSquare"
+            color="#67c23a"
+          />
+        </el-col>
+      </el-row>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted } from 'vue'
-import client from '@/api/client'
-import type { TrendDataItem } from '@/components/charts/TrendLineChart.vue'
+import { computed, onMounted } from 'vue'
+import { useTrendsStore } from '@/stores/trends'
 import TrendLineChart from '@/components/charts/TrendLineChart.vue'
 import LoadingCard from '@/components/common/LoadingCard.vue'
+import StatCard from '@/components/common/StatCard.vue'
 
-interface TrendSeries {
-  title: string
-  data: TrendDataItem[]
-}
+const store = useTrendsStore()
 
-const trendType = ref('sentiment')
-const dateRange = ref<[string, string] | null>(null)
-const loading = ref(false)
-const error = ref<string | null>(null)
-const trendSeriesList = ref<TrendSeries[]>([])
-
-async function fetchTrends() {
-  loading.value = true
-  error.value = null
-  try {
-    const params: Record<string, unknown> = {
-      type: trendType.value,
-    }
-    if (dateRange.value && dateRange.value.length === 2) {
-      params.start_date = dateRange.value[0]
-      params.end_date = dateRange.value[1]
-    }
-    const res = await client.get('/trends', { params })
-    const raw = res.data as TrendSeries[]
-    trendSeriesList.value = raw
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : '获取趋势数据失败'
-    error.value = msg
-    console.error('Trends fetch error:', err)
-  } finally {
-    loading.value = false
+const seriesTypeLabel = computed(() => {
+  const map: Record<string, string> = {
+    sentiment: '情感',
+    keyword: '关键词',
+    topic: '主题',
   }
-}
+  return map[store.seriesType] || store.seriesType
+})
+
+const granularityLabel = computed(() => {
+  const map: Record<string, string> = {
+    day: '按日',
+    week: '按周',
+    month: '按月',
+    year: '按年',
+  }
+  return map[store.granularity] || store.granularity
+})
+
+const trendChartData = computed(() => {
+  if (!store.data) return []
+  return store.data.buckets.map((b) => ({
+    bucket_start: b.bucket_start,
+    value: b.avg_sentiment ?? 0,
+    comment_count: b.comment_count,
+  }))
+})
+
+const avgSentiment = computed(() => {
+  if (!store.data || store.data.buckets.length === 0) return null
+  const buckets = store.data.buckets.filter((b) => b.avg_sentiment !== null)
+  if (buckets.length === 0) return null
+  return buckets.reduce((s, b) => s + (b.avg_sentiment ?? 0), 0) / buckets.length
+})
+
+const avgSentimentStr = computed(() => {
+  return avgSentiment.value?.toFixed(3) ?? '--'
+})
+
+const totalCommentCount = computed(() => {
+  if (!store.data) return 0
+  return store.data.buckets.reduce((s, b) => s + b.comment_count, 0)
+})
 
 onMounted(() => {
-  fetchTrends()
+  store.fetchTrends()
 })
 </script>
 
@@ -127,11 +160,7 @@ onMounted(() => {
 
 .filter-label {
   font-size: 14px;
-  color: var(--text-regular);
+  color: var(--el-text-color-regular);
   white-space: nowrap;
-}
-
-.empty-state {
-  padding: 60px 0;
 }
 </style>

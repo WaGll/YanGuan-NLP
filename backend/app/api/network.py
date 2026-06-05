@@ -89,3 +89,20 @@ async def get_network(
         }
 
     return APIResponse(data=graph_data)
+
+
+@router.get("/network/metrics")
+async def get_network_metrics(
+    top_n: int = Query(20, ge=5, le=100, description="共现矩阵维度和 Top 节点数量"),
+    db: AsyncSession = Depends(get_db),
+):
+    """获取网络分析指标摘要。
+
+    返回：
+    - **cooccurrence_matrix**: 关键词共现矩阵（top_n × top_n）
+    - **top_central_nodes**: 按度/介数/接近中心性/PageRank 排序的 Top 节点
+    - **statistics**: 网络统计（节点数、边数、密度、社区数）
+    """
+    service = NetworkService(db)
+    metrics = await service.get_network_metrics(top_n=top_n)
+    return APIResponse(data=metrics)

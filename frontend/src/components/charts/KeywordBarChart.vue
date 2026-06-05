@@ -20,65 +20,86 @@ let chartInstance: echarts.ECharts | null = null
 
 function getChartOption(): echarts.EChartsOption {
   const sorted = [...props.data].sort((a, b) => a.frequency - b.frequency)
-  const top = sorted.slice(-20)
+  const items = sorted.slice(-20)
+  const maxVal = items.length > 0 ? items[items.length - 1].frequency : 1
+  const prevMax = items.length > 1 ? items[items.length - 2].frequency : maxVal
+
+  // Delta for floating badge on top bar
+  const delta = maxVal > 0 && prevMax > 0
+    ? ((maxVal - prevMax) / prevMax * 100).toFixed(1)
+    : null
 
   return {
     tooltip: {
       trigger: 'axis',
       axisPointer: { type: 'shadow' },
+      backgroundColor: '#ffffff',
+      borderColor: '#f0f1f3',
+      textStyle: { color: '#1e293b', fontSize: 12 },
       formatter: (params: unknown) => {
         const p = (params as Array<{ name: string; value: number }>)[0]
-        return `${p.name}: ${p.value}`
+        return `<strong>${p.name}</strong><br/>Frequency: ${p.value.toLocaleString()}`
       },
     },
     grid: {
       left: 100,
-      right: 40,
-      top: 10,
-      bottom: 60,
+      right: 60,
+      top: 16,
+      bottom: 12,
     },
     xAxis: {
       type: 'value',
-      name: '频次',
+      axisLine: { show: false },
+      axisTick: { show: false },
+      splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+      axisLabel: { color: '#94a3b8', fontSize: 10 },
     },
     yAxis: {
       type: 'category',
-      data: top.map((d) => d.word),
+      data: items.map((d) => d.word),
+      axisLine: { show: false },
+      axisTick: { show: false },
       axisLabel: {
-        rotate: 45,
-        fontSize: 11,
-        align: 'right',
+        fontSize: 12,
+        color: '#64748b',
+        fontWeight: 500,
       },
       inverse: true,
     },
-    series: [
-      {
-        type: 'bar',
-        data: top.map((d) => ({
+    series: [{
+      type: 'bar',
+      barWidth: 20,
+      barCategoryGap: '12px',
+      data: items.map((d, i) => {
+        const isTop = i === items.length - 1
+        return {
           value: d.frequency,
           itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-              { offset: 0, color: '#409eff' },
-              { offset: 1, color: '#a0cfff' },
-            ]),
-            borderRadius: [0, 4, 4, 0],
+            color: isTop ? '#16a34a' : '#b7d7c5',
+            borderRadius: [0, 9999, 9999, 0],
           },
-        })),
-        barWidth: 16,
-        label: {
-          show: true,
-          position: 'right',
-          fontSize: 10,
-        },
-      },
-    ],
+          label: isTop && delta ? {
+            show: true,
+            position: 'right',
+            distance: 8,
+            color: '#16a34a',
+            fontSize: 11,
+            fontWeight: 600,
+            formatter: `+${delta}%`,
+            backgroundColor: '#f0fdf4',
+            padding: [2, 8],
+            borderRadius: 9999,
+          } : undefined,
+        }
+      }),
+    }],
   }
 }
 
 function initChart() {
   if (!chartRef.value) return
   chartInstance = echarts.init(chartRef.value)
-  chartInstance.setOption(getChartOption())
+  chartInstance.setOption(getChartOption(), { notMerge: true })
 }
 
 function handleResize() {
@@ -99,7 +120,7 @@ watch(
   () => props.data,
   () => {
     if (chartInstance) {
-      chartInstance.setOption(getChartOption())
+      chartInstance.setOption(getChartOption(), { notMerge: true })
     }
   },
   { deep: true }
@@ -109,6 +130,6 @@ watch(
 <style scoped>
 .chart-container {
   width: 100%;
-  height: 400px;
+  height: 420px;
 }
 </style>

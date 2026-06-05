@@ -1,0 +1,55 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - navigation [ref=e5]:
+      - link "Overview" [ref=e6] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Topics" [ref=e7] [cursor=pointer]:
+        - /url: /topics
+      - link "Sentiment" [ref=e8] [cursor=pointer]:
+        - /url: /sentiment
+      - link "Trends" [ref=e9] [cursor=pointer]:
+        - /url: /trends
+      - link "Network" [ref=e10] [cursor=pointer]:
+        - /url: /network
+      - link "Forecast" [ref=e11] [cursor=pointer]:
+        - /url: /predict
+    - generic [ref=e12]:
+      - generic [ref=e13]: 考研评论
+      - generic [ref=e15]: 2024-12
+      - generic [ref=e17] [cursor=pointer]:
+        - generic:
+          - combobox [ref=e19]
+          - generic [ref=e20]: BERTopic
+        - img [ref=e23]
+      - generic [ref=e25] [cursor=pointer]: WG
+  - generic [ref=e26]:
+    - navigation [ref=e27]:
+      - link "YG" [ref=e28] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e29]: YG
+      - generic [ref=e30]:
+        - link "Overview" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e33]
+        - link "Topics" [ref=e37] [cursor=pointer]:
+          - /url: /topics
+          - img [ref=e39]
+        - link "Sentiment" [ref=e42] [cursor=pointer]:
+          - /url: /sentiment
+          - img [ref=e44]
+        - link "Trends" [ref=e46] [cursor=pointer]:
+          - /url: /trends
+          - img [ref=e48]
+        - link "Network" [ref=e50] [cursor=pointer]:
+          - /url: /network
+          - img [ref=e52]
+        - link "Forecast" [ref=e55] [cursor=pointer]:
+          - /url: /predict
+          - img [ref=e57]
+      - generic [ref=e60]:
+        - button "Search (⌘K)" [ref=e61] [cursor=pointer]:
+          - img [ref=e63]
+        - button "Settings" [ref=e65] [cursor=pointer]:
+          - img [ref=e67]
+      - generic [ref=e70] [cursor=pointer]: WG
+    - main [ref=e71]

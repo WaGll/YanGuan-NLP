@@ -1,11 +1,11 @@
 # =============================================================================
-# GradCareer-CommentAnalysis 项目配置
+# YanGuan-NLP 项目配置
 # =============================================================================
 
 [project]
-name = "gradcareer-comment-analysis"
-version = "0.1.0"
-description = "高校毕业生就业评论分析系统 - 后端"
+name = "yanguan-nlp"
+version = "1.1.0"
+description = "研观 — 考研评论多维度 NLP 分析平台"
 requires-python = ">=3.12"
 readme = "README.md"
 license = { text = "MIT" }

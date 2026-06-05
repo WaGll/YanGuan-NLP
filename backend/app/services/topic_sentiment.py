@@ -54,17 +54,17 @@ class TopicSentimentService:
         """
         # 1. 查询主题列表
         topic_result = await self.db.execute(
-            select(Topic.id, Topic.topic_index, Topic.label).where(
+            select(Topic.id, Topic.topic_index, Topic.label, Topic.business_label).where(
                 Topic.method == method
             ).order_by(Topic.topic_index)
         )
         topic_rows = topic_result.all()
         if not topic_rows:
             logger.warning("未找到 method=%s 的主题数据", method)
-            return {"topics": [], "sentiment_classes": [], "cells": []}
+            return {"topics": [], "topic_business_labels": [], "sentiment_classes": [], "cells": []}
 
-        topic_map = {tid: (tidx, tlabel or f"主题 {tidx + 1}")
-                     for tid, tidx, tlabel in topic_rows}
+        topic_map = {tid: (tidx, tlabel or f"主题 {tidx + 1}", blabel or tlabel or f"主题 {tidx + 1}")
+                     for tid, tidx, tlabel, blabel in topic_rows}
 
         # 2. 查询主导主题分配 + 情感分类
         result = await self.db.execute(
@@ -98,6 +98,7 @@ class TopicSentimentService:
         # 按 topic_index 排序的主题 id 列表
         sorted_topic_ids = sorted(topic_map.keys(), key=lambda tid: topic_map[tid][0])
         topic_labels = [topic_map[tid][1] for tid in sorted_topic_ids]
+        topic_business_labels = [topic_map[tid][2] for tid in sorted_topic_ids]
 
         # 计算每个主题的总文档数
         topic_totals: dict[int, int] = defaultdict(int)
@@ -114,9 +115,9 @@ class TopicSentimentService:
                 proportion = round(count / topic_total, 4) if topic_total > 0 else 0.0
                 row_cells.append({
                     "topic_id": topic_id,
-                    "topic_label": topic_map[topic_id][1],
+                    "topic": topic_map[topic_id][1],
                     "topic_index": topic_map[topic_id][0],
-                    "sentiment_class": sc,
+                    "sentiment": sc,
                     "count": count,
                     "proportion": proportion,
                 })
@@ -129,6 +130,7 @@ class TopicSentimentService:
         )
         return {
             "topics": topic_labels,
+            "topic_business_labels": topic_business_labels,
             "sentiment_classes": sentiment_classes,
             "cells": cells,
         }

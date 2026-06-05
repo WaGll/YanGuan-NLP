@@ -9,7 +9,7 @@ from collections import defaultdict
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import func, select
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comment import Comment
@@ -54,15 +54,27 @@ class TrendService:
         """
         fmt = GRANULARITY_FORMAT.get(granularity, "%Y-%m")
 
-        # 查询 joint 数据，按时间桶分组计算平均值
+        # 查询 joint 数据，按时间桶分组计算平均值和分类计数
         result = await self.db.execute(
             select(
-                func.strftime(fmt, Comment.create_datetime).label("bucket"),
+                func.strftime(
+                    fmt,
+                    func.datetime(Comment.create_time, "unixepoch", "localtime"),
+                ).label("bucket"),
                 func.avg(SentimentResult.snownlp_score).label("avg_score"),
                 func.count(SentimentResult.id).label("cnt"),
+                func.sum(
+                    case((SentimentResult.sentiment_class == "positive", 1), else_=0)
+                ).label("positive_count"),
+                func.sum(
+                    case((SentimentResult.sentiment_class == "neutral", 1), else_=0)
+                ).label("neutral_count"),
+                func.sum(
+                    case((SentimentResult.sentiment_class == "negative", 1), else_=0)
+                ).label("negative_count"),
             )
             .join(SentimentResult, Comment.id == SentimentResult.comment_id)
-            .where(Comment.create_datetime.isnot(None))
+            .where(Comment.create_time > 0)
             .group_by("bucket")
             .order_by("bucket")
         )
@@ -72,15 +84,25 @@ class TrendService:
             return []
 
         trend_data = []
-        for bucket_str, avg_score, comment_count in rows:
+        for (
+            bucket_str,
+            avg_score,
+            comment_count,
+            positive_count,
+            neutral_count,
+            negative_count,
+        ) in rows:
             bucket_start, bucket_end = self._parse_bucket_range(
                 bucket_str, granularity
             )
             trend_data.append({
                 "bucket_start": bucket_start,
                 "bucket_end": bucket_end,
-                "value": round(float(avg_score), 4) if avg_score else 0.0,
+                "avg_sentiment": round(float(avg_score), 4) if avg_score else 0.0,
                 "comment_count": comment_count or 0,
+                "positive_count": positive_count or 0,
+                "neutral_count": neutral_count or 0,
+                "negative_count": negative_count or 0,
             })
 
         logger.info(

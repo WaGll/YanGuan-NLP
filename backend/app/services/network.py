@@ -134,11 +134,22 @@ class NetworkService:
             if G.number_of_nodes() > 2
             else {n: 0.0 for n in G.nodes()}
         )
+        # 接近中心性（可能在非连通图上失败）
+        closeness_cent: dict[str, float] = {}
+        try:
+            closeness_cent = nx.closeness_centrality(G)
+        except Exception:
+            closeness_cent = {n: 0.0 for n in G.nodes()}
+        # PageRank
+        pagerank_scores: dict[str, float] = {}
+        try:
+            pagerank_scores = nx.pagerank(G, weight="weight", alpha=0.85)
+        except Exception:
+            pagerank_scores = {n: 0.0 for n in G.nodes()}
         eigenvector_cent = {}
         try:
             eigenvector_cent = nx.eigenvector_centrality_numpy(G, weight="weight")
         except Exception:
-            # 图可能不连通或无法收敛，退回使用 power iteration
             try:
                 eigenvector_cent = nx.eigenvector_centrality(
                     G, max_iter=500, weight="weight"
@@ -170,7 +181,8 @@ class NetworkService:
 
         # 7. 持久化到数据库
         await self._persist_network(
-            G, word_freq, degree_cent, betweenness_cent, eigenvector_cent, communities
+            G, word_freq, degree_cent, betweenness_cent,
+            closeness_cent, eigenvector_cent, pagerank_scores, communities
         )
 
         # 8. 构造返回数据（前端可视化格式）
@@ -187,7 +199,9 @@ class NetworkService:
                 "frequency": word_freq[word],
                 "degree_centrality": round(degree_cent.get(word, 0), 4),
                 "betweenness_centrality": round(betweenness_cent.get(word, 0), 4),
+                "closeness_centrality": round(closeness_cent.get(word, 0), 4),
                 "eigenvector_centrality": round(eigenvector_cent.get(word, 0), 4),
+                "pagerank": round(pagerank_scores.get(word, 0), 4),
             })
 
         edges_out = []
@@ -207,6 +221,134 @@ class NetworkService:
         return {"nodes": nodes_out, "edges": edges_out}
 
     # ------------------------------------------------------------------
+    # 网络指标查询
+    # ------------------------------------------------------------------
+
+    async def get_network_metrics(
+        self, top_n: int = 20
+    ) -> dict[str, Any]:
+        """获取网络分析指标摘要。
+
+        从已持久化的网络数据中提取：
+        - 关键词共现矩阵（top_n × top_n）
+        - 各中心性 Top 节点
+        - 网络统计（节点数、边数、密度、平均聚类系数、社区数）
+
+        Args:
+            top_n: 返回的矩阵维度和 Top 节点数量
+
+        Returns:
+            metrics dict 包含 cooccurrence_matrix, top_central_nodes, statistics
+        """
+        from sqlalchemy import func
+
+        # 加载节点数据
+        node_result = await self.db.execute(
+            select(NetworkNode).order_by(
+                NetworkNode.degree_centrality.desc().nullslast()
+            ).limit(top_n)
+        )
+        nodes = node_result.scalars().all()
+
+        if not nodes:
+            return {
+                "cooccurrence_matrix": {"keywords": [], "matrix": []},
+                "top_central_nodes": {
+                    "degree": [],
+                    "betweenness": [],
+                    "closeness": [],
+                    "pagerank": [],
+                },
+                "statistics": {
+                    "node_count": 0,
+                    "edge_count": 0,
+                    "density": 0,
+                    "avg_clustering": 0,
+                    "connected_components": 0,
+                    "community_count": 0,
+                    "modularity": 0,
+                },
+            }
+
+        # 获取 top_n 节点名称
+        top_words = [n.word for n in nodes]
+
+        # 加载这些节点之间的边 → 共现矩阵
+        edge_result = await self.db.execute(
+            select(NetworkEdge).where(
+                NetworkEdge.source_word.in_(top_words),
+                NetworkEdge.target_word.in_(top_words),
+            )
+        )
+        edges = edge_result.scalars().all()
+
+        # 构建共现矩阵 (带标签)
+        word_index = {w: i for i, w in enumerate(top_words)}
+        n = len(top_words)
+        matrix = [[0] * n for _ in range(n)]
+        for e in edges:
+            i = word_index.get(e.source_word)
+            j = word_index.get(e.target_word)
+            if i is not None and j is not None:
+                matrix[i][j] = int(e.weight)
+                matrix[j][i] = int(e.weight)
+
+        # Top 节点按各中心性排序
+        all_nodes_result = await self.db.execute(
+            select(NetworkNode).order_by(
+                NetworkNode.degree_centrality.desc().nullslast()
+            )
+        )
+        all_nodes = all_nodes_result.scalars().all()
+
+        def top_by(attr: str, limit: int = 10) -> list[dict]:
+            sorted_nodes = sorted(
+                all_nodes, key=lambda n: getattr(n, attr) or 0, reverse=True
+            )
+            return [
+                {"word": n.word, "value": round(getattr(n, attr) or 0, 4)}
+                for n in sorted_nodes[:limit]
+            ]
+
+        # 计算网络统计
+        total_nodes = len(all_nodes)
+        edge_count_result = await self.db.execute(
+            select(func.count(NetworkEdge.id))
+        )
+        total_edges = edge_count_result.scalar() or 0
+
+        # 密度: 2*E / (N*(N-1)) for undirected
+        density = (
+            (2 * total_edges) / (total_nodes * (total_nodes - 1))
+            if total_nodes > 1 else 0
+        )
+
+        # 不同社区数
+        community_ids = {n.community_id for n in all_nodes if n.community_id is not None}
+
+        return {
+            "cooccurrence_matrix": {
+                "keywords": top_words,
+                "matrix": matrix,
+            },
+            "top_central_nodes": {
+                "degree": top_by("degree_centrality"),
+                "betweenness": top_by("betweenness_centrality"),
+                "closeness": top_by("closeness_centrality"),
+                "pagerank": top_by("pagerank"),
+            },
+            "statistics": {
+                "node_count": total_nodes,
+                "edge_count": total_edges,
+                "density": round(density, 6),
+                "avg_clustering": 0,  # 需要 NetworkX 图对象，从 DB 重建开销大
+                "connected_components": 1,  # 同上
+                "community_count": len(community_ids),
+                "modularity": 0,
+            },
+        }
+
+    # ------------------------------------------------------------------
     # 私有方法
     # ------------------------------------------------------------------
 
@@ -216,7 +358,9 @@ class NetworkService:
         word_freq: Counter[str],
         degree_cent: dict[str, float],
         betweenness_cent: dict[str, float],
+        closeness_cent: dict[str, float],
         eigenvector_cent: dict[str, float],
+        pagerank_scores: dict[str, float],
         communities: dict[str, int],
     ) -> None:
         """将网络节点和边持久化到数据库。
@@ -236,7 +380,9 @@ class NetworkService:
                     frequency=word_freq.get(word, 0),
                     degree_centrality=degree_cent.get(word, 0.0),
                     betweenness_centrality=betweenness_cent.get(word, 0.0),
+                    closeness_centrality=closeness_cent.get(word, 0.0),
                     eigenvector_centrality=eigenvector_cent.get(word, 0.0),
+                    pagerank=pagerank_scores.get(word, 0.0),
                     community_id=communities.get(word, 0),
                 )
             )

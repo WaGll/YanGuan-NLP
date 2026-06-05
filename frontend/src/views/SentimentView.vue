@@ -1,126 +1,305 @@
 <template>
   <div class="sentiment-page">
-    <h2 class="page-title">情感分析</h2>
+    <!-- Row 1: KPI Cards -->
+    <el-row :gutter="20" style="margin-bottom: 20px">
+      <el-col :xs="24" :sm="8" v-for="card in kpiCards" :key="card.label">
+        <div class="sentiment-card">
+          <span class="sentiment-card__label">{{ card.label }}</span>
+          <span class="sentiment-card__value" :style="{ color: card.color }">{{ card.percentage }}%</span>
+          <span class="sentiment-card__count">{{ card.count.toLocaleString() }} comments</span>
+        </div>
+      </el-col>
+    </el-row>
 
-    <!-- 加载状态 -->
-    <template v-if="loading">
-      <el-row :gutter="20">
-        <el-col :xs="24" :lg="12">
-          <LoadingCard :rows="6" />
-        </el-col>
-        <el-col :xs="24" :lg="12">
-          <LoadingCard :rows="8" />
-        </el-col>
-      </el-row>
-    </template>
+    <!-- Row 2: Donut + Trend -->
+    <el-row :gutter="20" style="margin-bottom: 20px">
+      <el-col :xs="24" :lg="10">
+        <div class="sentiment-card sentiment-card--chart">
+          <h3 class="sentiment-card__title">SENTIMENT BREAKDOWN</h3>
+          <SentimentPieChart :data="sentimentBins" />
+        </div>
+      </el-col>
+      <el-col :xs="24" :lg="14">
+        <div class="sentiment-card sentiment-card--chart">
+          <h3 class="sentiment-card__title">SENTIMENT TREND</h3>
+          <div ref="trendChartRef" class="trend-chart"></div>
+        </div>
+      </el-col>
+    </el-row>
 
-    <!-- 错误状态 -->
-    <el-alert
-      v-else-if="error"
-      :title="error"
-      type="error"
-      show-icon
-      :closable="false"
-      style="margin-bottom: 20px"
-    />
-
-    <!-- 正常内容 -->
-    <template v-else>
-      <!-- 情感饼图 -->
-      <el-row :gutter="20">
-        <el-col :xs="24" :lg="12">
-          <el-card>
-            <template #header>
-              <span>情感分布</span>
-            </template>
-            <SentimentPieChart :data="sentimentBins" />
-          </el-card>
-        </el-col>
-        <el-col :xs="24" :lg="12">
-          <el-card>
-            <template #header>
-              <span>ML模型准确率对比</span>
-            </template>
-            <SentimentBarChart :data="mlScores" />
-          </el-card>
-        </el-col>
-      </el-row>
-
-      <!-- 分布详情表格 -->
-      <el-card style="margin-top: 20px">
-        <template #header>
-          <span>情感分布统计</span>
-        </template>
-        <el-table :data="sentimentBins" stripe>
-          <el-table-column prop="label" label="情感类别" width="150" />
-          <el-table-column prop="count" label="评论数" width="150" />
-          <el-table-column prop="percentage" label="占比" min-width="200">
-            <template #default="{ row }">
-              <el-progress
-                :percentage="row.percentage"
-                :color="getProgressColor(row.label)"
-                :show-text="true"
-                :format="() => `${row.percentage}%`"
-              />
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-
-      <!-- ML模型详情表格 -->
-      <el-card style="margin-top: 20px" v-if="mlScores.length > 0">
-        <template #header>
-          <span>ML模型详情</span>
-        </template>
-        <el-table :data="mlScores" stripe>
-          <el-table-column prop="model_name" label="模型名称" />
-          <el-table-column prop="cv_mean" label="CV平均准确率">
-            <template #default="{ row }">
-              {{ `${(row.cv_mean * 100).toFixed(2)}% ± ${(row.cv_std * 100).toFixed(2)}%` }}
-            </template>
-          </el-table-column>
-          <el-table-column prop="best_params" label="最优参数">
-            <template #default="{ row }">
-              <el-tag
-                v-for="(value, key) in row.best_params"
-                :key="String(key)"
-                size="small"
-                style="margin-right: 6px; margin-bottom: 4px"
-              >
-                {{ key }}: {{ value }}
-              </el-tag>
-            </template>
-          </el-table-column>
-        </el-table>
-      </el-card>
-    </template>
+    <!-- Row 3: Distribution Table -->
+    <div class="sentiment-card">
+      <h3 class="sentiment-card__title">DISTRIBUTION</h3>
+      <div class="dist-table">
+        <div class="dist-table__header">
+          <span class="dist-table__th">Category</span>
+          <span class="dist-table__th">Count</span>
+          <span class="dist-table__th" style="flex:1">Proportion</span>
+        </div>
+        <div
+          v-for="bin in sentimentBins"
+          :key="bin.label"
+          class="dist-table__row"
+        >
+          <span class="dist-table__cell dist-table__cell--label">{{ bin.label }}</span>
+          <span class="dist-table__cell dist-table__cell--count">{{ bin.count.toLocaleString() }}</span>
+          <div class="dist-table__cell dist-table__cell--bar" style="flex:1">
+            <div class="dist-bar">
+              <div
+                class="dist-bar__fill"
+                :style="{
+                  width: `${bin.percentage}%`,
+                  background: getBarColor(bin.label),
+                }"
+              ></div>
+            </div>
+            <span class="dist-bar__pct">{{ bin.percentage }}%</span>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted } from 'vue'
+import { ref, computed, onMounted, onUnmounted, nextTick } from 'vue'
+import * as echarts from 'echarts'
 import { useSentimentStore } from '@/stores/sentiment'
+import { getTrends } from '@/api/trends'
 import type { SentimentBin } from '@/api/sentiment'
 import SentimentPieChart from '@/components/charts/SentimentPieChart.vue'
-import SentimentBarChart from '@/components/charts/SentimentBarChart.vue'
-import LoadingCard from '@/components/common/LoadingCard.vue'
 
 const sentimentStore = useSentimentStore()
-const { distribution, mlScores, loading, error } = sentimentStore
+const trendChartRef = ref<HTMLElement | null>(null)
+let trendChart: echarts.ECharts | null = null
 
-const sentimentBins = computed<SentimentBin[]>(() => distribution.value?.bins ?? [])
+const sentimentBins = computed<SentimentBin[]>(() => sentimentStore.distribution?.bins ?? [])
 
-function getProgressColor(label: string): string {
-  const map: Record<string, string> = {
-    正面: '#67c23a',
-    中性: '#909399',
-    负面: '#f56c6c',
+const kpiCards = computed(() => {
+  const bins = sentimentBins.value
+  const positive = bins.find((b) => b.label === '积极' || b.label === '正面' || b.label === 'positive' || b.label === 'Positive')
+  const neutral  = bins.find((b) => b.label === '中性' || b.label === 'neutral' || b.label === 'Neutral')
+  const negative = bins.find((b) => b.label === '消极' || b.label === '负面' || b.label === 'negative' || b.label === 'Negative')
+  return [
+    { label: 'Positive', percentage: positive?.percentage ?? 0, count: positive?.count ?? 0, color: '#16a34a' },
+    { label: 'Neutral',  percentage: neutral?.percentage  ?? 0, count: neutral?.count  ?? 0, color: '#f59e0b' },
+    { label: 'Negative', percentage: negative?.percentage ?? 0, count: negative?.count ?? 0, color: '#ef4444' },
+  ]
+})
+
+function getBarColor(label: string): string {
+  if (label.includes('正面') || label.toLowerCase().includes('positive')) return '#16a34a'
+  if (label.includes('中性') || label.toLowerCase().includes('neutral')) return '#f59e0b'
+  return '#ef4444'
+}
+
+async function renderTrendChart() {
+  if (!trendChartRef.value) return
+
+  try {
+    const data = await getTrends('sentiment', 'month')
+    if (!trendChart) {
+      trendChart = echarts.init(trendChartRef.value)
+    }
+
+    const dates = data.buckets.map((b) => b.bucket_start.slice(0, 7))
+    const positiveData = data.buckets.map((b) => b.positive_count)
+    const neutralData  = data.buckets.map((b) => b.neutral_count)
+    const negativeData = data.buckets.map((b) => b.negative_count)
+
+    trendChart.setOption({
+      tooltip: {
+        trigger: 'axis',
+        backgroundColor: '#ffffff',
+        borderColor: '#f0f1f3',
+        textStyle: { color: '#1e293b', fontSize: 12 },
+      },
+      legend: {
+        data: ['Positive', 'Neutral', 'Negative'],
+        top: 0,
+        textStyle: { color: '#64748b', fontSize: 11 },
+      },
+      grid: { top: 32, right: 24, bottom: 24, left: 48 },
+      xAxis: {
+        type: 'category',
+        data: dates,
+        axisLine: { lineStyle: { color: '#e2e8f0' } },
+        axisTick: { show: false },
+        axisLabel: { color: '#94a3b8', fontSize: 10 },
+      },
+      yAxis: {
+        type: 'value',
+        splitLine: { lineStyle: { color: '#f1f5f9', type: 'dashed' } },
+        axisLabel: { color: '#94a3b8', fontSize: 10 },
+      },
+      series: [
+        {
+          name: 'Positive', type: 'line', data: positiveData,
+          smooth: true, symbolSize: 2, lineStyle: { color: '#16a34a', width: 2 },
+          itemStyle: { color: '#16a34a' },
+          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(22,163,74,0.1)' }, { offset: 1, color: 'rgba(22,163,74,0)' }]) },
+        },
+        {
+          name: 'Neutral', type: 'line', data: neutralData,
+          smooth: true, symbolSize: 2, lineStyle: { color: '#f59e0b', width: 2 },
+          itemStyle: { color: '#f59e0b' },
+          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(245,158,11,0.1)' }, { offset: 1, color: 'rgba(245,158,11,0)' }]) },
+        },
+        {
+          name: 'Negative', type: 'line', data: negativeData,
+          smooth: true, symbolSize: 2, lineStyle: { color: '#ef4444', width: 2 },
+          itemStyle: { color: '#ef4444' },
+          areaStyle: { color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [{ offset: 0, color: 'rgba(239,68,68,0.1)' }, { offset: 1, color: 'rgba(239,68,68,0)' }]) },
+        },
+      ],
+    })
+
+    trendChart.resize()
+  } catch {
+    // Trends data unavailable — chart stays empty
   }
-  return map[label] || '#409eff'
 }
 
 onMounted(async () => {
   await sentimentStore.fetchDistribution()
-  await sentimentStore.fetchMLScores()
+  await nextTick()
+  await renderTrendChart()
+  window.addEventListener('resize', () => trendChart?.resize())
+})
+
+onUnmounted(() => {
+  trendChart?.dispose()
 })
 </script>
+
+<style scoped>
+/* ── Card (v2: 24px radius, no border, soft shadow) ── */
+.sentiment-card {
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  padding: 24px 28px;
+  margin-bottom: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.sentiment-card--chart {
+  min-height: 360px;
+}
+
+.sentiment-card__title {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  margin: 0 0 12px 0;
+}
+
+.sentiment-card__label {
+  font-size: 12px;
+  font-weight: 500;
+  color: #64748b;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.sentiment-card__value {
+  font-size: 32px;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.sentiment-card__count {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ── Trend chart ── */
+.trend-chart {
+  width: 100%;
+  height: 300px;
+  flex: 1;
+}
+
+/* ── Distribution table ── */
+.dist-table {
+  display: flex;
+  flex-direction: column;
+}
+
+.dist-table__header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid #f1f5f9;
+  margin-bottom: 12px;
+}
+
+.dist-table__th {
+  font-size: 11px;
+  font-weight: 600;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  width: 100px;
+}
+
+.dist-table__row {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 0;
+  border-bottom: 1px solid #f8fafc;
+}
+
+.dist-table__cell {
+  font-size: 13px;
+}
+
+.dist-table__cell--label {
+  width: 100px;
+  color: #1e293b;
+  font-weight: 500;
+}
+
+.dist-table__cell--count {
+  width: 100px;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+}
+
+.dist-table__cell--bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.dist-bar {
+  flex: 1;
+  height: 10px;
+  background: #f1f5f9;
+  border-radius: 9999px;
+  overflow: hidden;
+}
+
+.dist-bar__fill {
+  height: 100%;
+  border-radius: 9999px;
+  transition: width 0.3s ease;
+}
+
+.dist-bar__pct {
+  font-size: 12px;
+  font-weight: 600;
+  color: #64748b;
+  font-variant-numeric: tabular-nums;
+  width: 40px;
+  text-align: right;
+}
+</style>

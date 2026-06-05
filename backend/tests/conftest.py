@@ -7,6 +7,7 @@ pytest 公共 Fixtures
 
 import asyncio
 from collections.abc import AsyncGenerator
+from pathlib import Path
 
 import pytest
 import pytest_asyncio
@@ -16,12 +17,18 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from app.models.base import Base
 
 
-@pytest_asyncio.fixture(scope="session")
-def event_loop():
-    """为整个测试会话创建事件循环。"""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
+@pytest_asyncio.fixture(scope="session", autouse=True)
+def nlp_resources():
+    """在测试会话中加载 NLP 资源（jieba 词典、停用词、同义词）。
+
+    使用 autouse 确保所有测试（包括 predict 端点）都能访问 NLPResources。
+    """
+    from app.utils.resources import NLPResources
+
+    data_dir = Path(__file__).resolve().parent.parent / "data"
+    if data_dir.exists():
+        NLPResources.get_instance().load(data_dir)
+    return
 
 
 @pytest_asyncio.fixture

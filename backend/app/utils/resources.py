@@ -9,7 +9,25 @@ import json
 from pathlib import Path
 from typing import Optional
 
+# 过滤 jieba 的 pkg_resources 弃用警告（jieba/__init__.py 顶层 import 触发）
+import warnings
+warnings.filterwarnings("ignore", message="pkg_resources is deprecated", category=UserWarning)
+
 import jieba
+
+# ------------------------------------------------------------------
+# Monkey-patch (模块级): 用 importlib.resources 替换 pkg_resources
+# ------------------------------------------------------------------
+try:
+    from importlib.resources import files as _ilr_files
+    import jieba._compat as _jieba_compat
+
+    def _patched_get_module_res(*res: str):
+        return _ilr_files("jieba").joinpath(*res).open("rb")
+
+    _jieba_compat.get_module_res = _patched_get_module_res
+except Exception:
+    pass
 
 
 class NLPResources:
@@ -84,6 +102,18 @@ class NLPResources:
                             if variant:
                                 self._synonyms[variant] = main_word
 
+        # 加载表情情感词典 {表情名: 情感标签}
+        emote_path = data_dir / "emote_sentiment.txt"
+        self._emote_sentiment: dict[str, str] = {}
+        if emote_path.exists():
+            with open(emote_path, encoding="utf-8") as f:
+                for line in f:
+                    if line.startswith("#") or not line.strip():
+                        continue
+                    parts = line.strip().split(",", 1)
+                    if len(parts) == 2:
+                        self._emote_sentiment[parts[0].strip()] = parts[1].strip()
+
         self._loaded = True
 
     @property
@@ -99,6 +129,19 @@ class NLPResources:
         if not self._loaded:
             raise RuntimeError("NLPResources 尚未加载，请先调用 load()")
         return self._synonyms
+
+    @property
+    def emote_sentiment(self) -> dict[str, str]:
+        """表情情感词典 {表情名: positive/negative/neutral}。"""
+        if not self._loaded:
+            raise RuntimeError("NLPResources 尚未加载，请先调用 load()")
+        return self._emote_sentiment
+
+    def get_emote_sentiment(self, emote_name: str) -> str:
+        """获取指定表情的情感标签，未收录则返回 neutral。"""
+        if not self._loaded:
+            raise RuntimeError("NLPResources 尚未加载，请先调用 load()")
+        return self._emote_sentiment.get(emote_name, "neutral")
 
     def replace_synonyms(self, tokens: list[str]) -> list[str]:
         """将 token 列表中的同义词替换为主词。"""

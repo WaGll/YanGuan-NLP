@@ -41,9 +41,9 @@ const categoryColors = [
   '#fac858',
   '#ee6666',
   '#73c0de',
-  '#3ba272',
   '#fc8452',
   '#9a60b4',
+  '#ea7ccc',
 ]
 
 function getChartOption(): echarts.EChartsOption {
@@ -83,7 +83,10 @@ function getChartOption(): echarts.EChartsOption {
           },
           label: {
             show: true,
-            fontSize: 10,
+            fontSize: 9,
+            color: '#64748b',
+            overflow: 'truncate',
+            width: 60,
           },
         })),
         edges: props.graphData.edges.map((e) => ({
@@ -91,9 +94,10 @@ function getChartOption(): echarts.EChartsOption {
           target: e.target,
           value: e.weight,
           lineStyle: {
-            width: Math.max(0.5, (e.weight / maxWeight) * 5),
+            width: Math.max(1.2, Math.sqrt(e.weight / maxWeight) * 4),
             curveness: 0.1,
-            opacity: 0.5,
+            opacity: 0.65,
+            color: '#94a3b8',
           },
         })),
         categories: [...new Set(props.graphData.nodes.map((n) => n.category))].map((c, i) => ({
@@ -101,9 +105,9 @@ function getChartOption(): echarts.EChartsOption {
           itemStyle: { color: categoryColors[i % categoryColors.length] },
         })),
         force: {
-          repulsion: 300,
-          gravity: 0.1,
-          edgeLength: [80, 200],
+          repulsion: 500,
+          gravity: 0.08,
+          edgeLength: [100, 260],
           layoutAnimation: true,
         },
         emphasis: {
@@ -118,7 +122,7 @@ function getChartOption(): echarts.EChartsOption {
 function initChart() {
   if (!chartRef.value) return
   chartInstance = echarts.init(chartRef.value)
-  chartInstance.setOption(getChartOption())
+  chartInstance.setOption(getChartOption(), { notMerge: true })
 
   chartInstance.on('click', (params: unknown) => {
     const p = params as { dataType?: string; data?: { id: string } }
@@ -146,7 +150,7 @@ watch(
   () => props.graphData,
   () => {
     if (chartInstance) {
-      chartInstance.setOption(getChartOption())
+      chartInstance.setOption(getChartOption(), { notMerge: true })
     }
   },
   { deep: true }

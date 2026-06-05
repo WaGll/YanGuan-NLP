@@ -10,7 +10,7 @@ from collections import Counter
 from typing import Any
 
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.comment import Comment
@@ -25,11 +25,18 @@ class KeywordService:
     提供词频统计、TF-IDF 计算和词云数据生成。
     """
 
+    # 关键词最小过滤阈值
+    MIN_TOKEN_LENGTH: int = 2  # 单字词无业务分析价值，用停用词表兜底
+    MIN_FREQUENCY: int = 3     # 至少出现 3 次才入库
+
     def __init__(self, db: AsyncSession):
         self.db = db
 
-    async def compute_frequencies(self) -> int:
+    async def compute_frequencies(self, progress: bool = False) -> int:
         """统计所有评论的 Token 词频并持久化到 keywords 表。
+
+        Args:
+            progress: 是否显示 tqdm 进度条
 
         Returns:
             提取的关键词数量
@@ -44,22 +51,33 @@ class KeywordService:
 
         # 统计词频
         counter: Counter = Counter()
-        for (tokens_json,) in rows:
+        if progress:
+            from tqdm import tqdm
+            row_iter = tqdm(rows, desc="Counting tokens", unit="docs")
+        else:
+            row_iter = rows
+        for (tokens_json,) in row_iter:
             try:
                 tokens = json.loads(tokens_json)
                 counter.update(tokens)
             except json.JSONDecodeError:
                 continue
 
-        # 批量写入
+        # 清除旧数据，避免 UNIQUE 约束冲突
+        await self.db.execute(delete(Keyword))
+        await self.db.flush()
+
+        # 批量写入（带过滤：最小长度 + 最小词频）
+        items = [(w, f) for w, f in counter.most_common()
+                 if len(w) >= self.MIN_TOKEN_LENGTH and f >= self.MIN_FREQUENCY]
+        if progress:
+            from tqdm import tqdm
+            w_iter = tqdm(items, desc="Keywords", unit="words")
+        else:
+            w_iter = items
         total = 0
-        for word, freq in counter.most_common():
-            self.db.add(
-                Keyword(
-                    word=word,
-                    frequency=freq,
-                )
-            )
+        for word, freq in w_iter:
+            self.db.add(Keyword(word=word, frequency=freq))
             total += 1
 
         await self.db.commit()
@@ -92,8 +110,13 @@ class KeywordService:
         if not documents:
             return []
 
-        # TF-IDF
-        vectorizer = TfidfVectorizer(max_features=500)
+        # TF-IDF（带参数过滤噪声词）
+        vectorizer = TfidfVectorizer(
+            max_features=500,
+            min_df=3,         # 至少出现在 3 个文档中
+            max_df=0.7,       # 最多出现在 70% 文档中（抑制跨文档高频词）
+            ngram_range=(1, 2),  # 同时提取 unigram 和 bigram
+        )
         tfidf_matrix = vectorizer.fit_transform(documents)
 
         # 汇总每个词的 TF-IDF 分数

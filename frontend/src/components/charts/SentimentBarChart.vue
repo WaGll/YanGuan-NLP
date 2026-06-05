@@ -67,17 +67,17 @@ function getChartOption(): echarts.EChartsOption {
           value: m,
           itemStyle: {
             color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-              { offset: 0, color: '#409eff' },
-              { offset: 1, color: '#67c23a' },
+              { offset: 0, color: '#006D44' },
+              { offset: 1, color: '#A6E7C9' },
             ]),
-            borderRadius: [0, 4, 4, 0],
+            borderRadius: [4, 4, 4, 4],
           },
         })),
         barWidth: 20,
         markLine: {
           silent: true,
           symbol: 'none',
-          lineStyle: { type: 'dashed', color: '#e6a23c', width: 1.5 },
+          lineStyle: { type: 'dashed', color: '#006D44', width: 1.5 },
           data: stds.map((std, i) => ({
             yAxis: models[i],
             xAxis: means[i] + std,
@@ -87,9 +87,9 @@ function getChartOption(): echarts.EChartsOption {
         label: {
           show: true,
           position: 'right',
-          formatter: (p: { value: number }) => `${(p.value * 100).toFixed(1)}%`,
+          formatter: (p: Record<string, unknown>) => `${(Number(p.value) * 100).toFixed(1)}%`,
           fontSize: 11,
-        },
+        } as Record<string, unknown>,
       },
       {
         name: '标准差范围',
@@ -99,8 +99,8 @@ function getChartOption(): echarts.EChartsOption {
         barGap: '-100%',
         z: 0,
         itemStyle: {
-          color: 'rgba(230, 162, 60, 0.15)',
-          borderRadius: [0, 4, 4, 0],
+          color: 'rgba(166, 231, 201, 0.3)',
+          borderRadius: [4, 4, 4, 4],
         },
         label: { show: false },
         tooltip: { show: false },
@@ -112,7 +112,7 @@ function getChartOption(): echarts.EChartsOption {
 function initChart() {
   if (!chartRef.value) return
   chartInstance = echarts.init(chartRef.value)
-  chartInstance.setOption(getChartOption())
+  chartInstance.setOption(getChartOption(), { notMerge: true })
 }
 
 function handleResize() {
@@ -133,7 +133,7 @@ watch(
   () => props.data,
   () => {
     if (chartInstance) {
-      chartInstance.setOption(getChartOption())
+      chartInstance.setOption(getChartOption(), { notMerge: true })
     }
   },
   { deep: true }

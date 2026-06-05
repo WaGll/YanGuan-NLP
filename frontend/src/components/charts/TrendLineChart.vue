@@ -74,16 +74,16 @@ function getChartOption(): echarts.EChartsOption {
         smooth: true,
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
-            { offset: 0, color: 'rgba(64, 158, 255, 0.3)' },
-            { offset: 1, color: 'rgba(64, 158, 255, 0.05)' },
+            { offset: 0, color: 'rgba(0, 109, 68, 0.25)' },
+            { offset: 1, color: 'rgba(0, 109, 68, 0.02)' },
           ]),
         },
         lineStyle: {
-          color: '#409eff',
+          color: '#006D44',
           width: 2,
         },
         itemStyle: {
-          color: '#409eff',
+          color: '#006D44',
         },
         symbol: 'circle',
         symbolSize: 6,
@@ -105,7 +105,7 @@ function getChartOption(): echarts.EChartsOption {
 function initChart() {
   if (!chartRef.value) return
   chartInstance = echarts.init(chartRef.value)
-  chartInstance.setOption(getChartOption())
+  chartInstance.setOption(getChartOption(), { notMerge: true })
 }
 
 function handleResize() {
@@ -126,7 +126,7 @@ watch(
   () => [props.data, props.title],
   () => {
     if (chartInstance) {
-      chartInstance.setOption(getChartOption())
+      chartInstance.setOption(getChartOption(), { notMerge: true })
     }
   },
   { deep: true }

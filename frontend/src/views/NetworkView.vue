@@ -1,135 +1,222 @@
 <template>
   <div class="network-page">
-    <h2 class="page-title">关键词共现网络</h2>
+    <!-- Tab navigation -->
+    <div class="network-tabs">
+      <button
+        class="network-tab"
+        :class="{ 'network-tab--active': activeTab === 'graph' }"
+        @click="activeTab = 'graph'"
+      >Graph</button>
+      <button
+        class="network-tab"
+        :class="{ 'network-tab--active': activeTab === 'metrics' }"
+        @click="activeTab = 'metrics'; loadMetrics()"
+      >Metrics</button>
+    </div>
 
-    <!-- 控制栏 -->
-    <el-card style="margin-bottom: 20px">
-      <div class="control-bar">
-        <div class="control-item">
-          <span class="control-label">最小边权重：</span>
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- TAB 1: Force Graph -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <template v-if="activeTab === 'graph'">
+      <!-- Controls -->
+      <div class="network-card">
+        <div class="control-bar">
+          <span class="control-label">Min Edge Weight</span>
           <el-slider
-            v-model="minWeight"
+            v-model="store.minWeight"
             :min="0"
-            :max="maxWeight"
+            :max="maxEdgeWeight"
             :step="1"
             show-input
             :show-input-controls="false"
-            style="width: 300px"
-            @change="applyFilter"
+            style="width: 240px"
           />
+          <el-button size="small" @click="store.fetchNetwork" :loading="store.loading">
+            Refresh
+          </el-button>
         </div>
-        <el-button type="primary" @click="resetFilter" :disabled="minWeight === 0">
-          重置过滤
-        </el-button>
       </div>
-    </el-card>
 
-    <!-- 主内容区 -->
-    <el-row :gutter="20">
-      <!-- 网络图 -->
-      <el-col :xs="24" :lg="18">
-        <!-- 加载状态 -->
-        <template v-if="loading">
-          <LoadingCard :rows="12" />
-        </template>
+      <!-- Loading / Error / Empty -->
+      <template v-if="store.loading">
+        <LoadingCard :rows="12" />
+      </template>
+      <el-alert
+        v-else-if="store.error"
+        :title="store.error"
+        type="error"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 16px"
+      />
+      <div class="network-card" v-else-if="!store.data || store.data.nodes.length === 0">
+        <el-empty description="No network data. Run the NLP pipeline first." />
+      </div>
 
-        <!-- 错误状态 -->
-        <el-alert
-          v-else-if="error"
-          :title="error"
-          type="error"
-          show-icon
-          :closable="false"
-        />
-
-        <!-- 网络图 -->
-        <template v-else>
-          <el-card>
+      <!-- Graph + Node Detail -->
+      <el-row v-else :gutter="20">
+        <el-col :xs="24" :lg="17">
+          <div class="network-card network-card--chart">
             <NetworkForceGraph
               :graphData="filteredGraphData"
-              @node-click="handleNodeClick"
+              @node-click="store.selectNode"
             />
-          </el-card>
-        </template>
-      </el-col>
-
-      <!-- 右侧节点详情面板 -->
-      <el-col :xs="24" :lg="6">
-        <el-card v-if="selectedNode" class="node-detail-panel">
-          <template #header>
-            <span>节点详情</span>
-          </template>
-          <el-descriptions :column="1" border size="small">
-            <el-descriptions-item label="节点名称">
-              <strong>{{ selectedNode.name }}</strong>
-            </el-descriptions-item>
-            <el-descriptions-item label="节点ID">
-              {{ selectedNode.id }}
-            </el-descriptions-item>
-            <el-descriptions-item label="节点大小">
-              {{ selectedNode.symbolSize }}
-            </el-descriptions-item>
-            <el-descriptions-item label="类别">
-              {{ selectedNode.category }}
-            </el-descriptions-item>
-            <el-descriptions-item label="度中心性">
-              {{ selectedNode.degree_centrality?.toFixed(4) ?? '--' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="介数中心性">
-              {{ selectedNode.betweenness_centrality?.toFixed(4) ?? '--' }}
-            </el-descriptions-item>
-            <el-descriptions-item label="特征向量中心性">
-              {{ selectedNode.eigenvector_centrality?.toFixed(4) ?? '--' }}
-            </el-descriptions-item>
-          </el-descriptions>
-        </el-card>
-
-        <el-card v-else class="node-detail-panel">
-          <div class="empty-detail">
-            <el-icon :size="36" color="#c0c4cc"><InfoFilled /></el-icon>
-            <p style="margin-top: 12px; color: #909399">点击图中节点查看详情</p>
           </div>
-        </el-card>
-      </el-col>
-    </el-row>
+        </el-col>
+        <el-col :xs="24" :lg="7">
+          <div class="network-card" v-if="store.selectedNode">
+            <h4 class="network-card__title">Node Detail</h4>
+            <div class="node-detail">
+              <div class="node-detail__row">
+                <span class="node-detail__label">Name</span>
+                <span class="node-detail__value"><strong>{{ store.selectedNode.name }}</strong></span>
+              </div>
+              <div class="node-detail__row">
+                <span class="node-detail__label">Frequency</span>
+                <span class="node-detail__value">{{ store.selectedNode.frequency }}</span>
+              </div>
+              <div class="node-detail__row">
+                <span class="node-detail__label">Community</span>
+                <span class="node-detail__value">{{ store.selectedNode.category }}</span>
+              </div>
+              <div class="node-detail__row">
+                <span class="node-detail__label">Degree</span>
+                <span class="node-detail__value">{{ store.selectedNode.degree_centrality?.toFixed(4) ?? '--' }}</span>
+              </div>
+              <div class="node-detail__row">
+                <span class="node-detail__label">Betweenness</span>
+                <span class="node-detail__value">{{ store.selectedNode.betweenness_centrality?.toFixed(4) ?? '--' }}</span>
+              </div>
+              <div class="node-detail__row">
+                <span class="node-detail__label">PageRank</span>
+                <span class="node-detail__value">{{ store.selectedNode.eigenvector_centrality?.toFixed(4) ?? '--' }}</span>
+              </div>
+            </div>
+          </div>
+          <div class="network-card network-card--empty" v-else>
+            <el-icon :size="32" color="#cbd5e1"><InfoFilled /></el-icon>
+            <p>Click a node<br>to see details</p>
+          </div>
+        </el-col>
+      </el-row>
+    </template>
+
+    <!-- ════════════════════════════════════════════════════════ -->
+    <!-- TAB 2: Metrics -->
+    <!-- ════════════════════════════════════════════════════════ -->
+    <template v-if="activeTab === 'metrics'">
+      <!-- Loading -->
+      <template v-if="store.metricsLoading">
+        <LoadingCard :rows="6" />
+      </template>
+
+      <!-- Error -->
+      <el-alert
+        v-else-if="store.metricsError"
+        :title="store.metricsError"
+        type="error"
+        show-icon
+        :closable="false"
+        style="margin-bottom: 16px"
+      />
+
+      <!-- Empty -->
+      <div class="network-card" v-else-if="!store.metrics">
+        <el-empty description="No metrics data. Build the network first." />
+      </div>
+
+      <!-- Content -->
+      <template v-else-if="store.metrics">
+        <!-- Statistics cards -->
+        <el-row :gutter="20" style="margin-bottom: 20px">
+          <el-col :xs="12" :sm="6" v-for="stat in statCards" :key="stat.label">
+            <div class="network-card network-card--stat">
+              <span class="stat-value">{{ stat.value }}</span>
+              <span class="stat-label">{{ stat.label }}</span>
+            </div>
+          </el-col>
+        </el-row>
+
+        <!-- Centrality tables -->
+        <el-row :gutter="20">
+          <el-col :xs="24" :lg="12" v-for="metric in centralityMetrics" :key="metric.key">
+            <div class="network-card">
+              <h4 class="network-card__title">{{ metric.label }}</h4>
+              <el-table
+                :data="store.metrics.top_central_nodes[metric.key]"
+                size="small"
+              >
+                <el-table-column type="index" label="#" width="48" />
+                <el-table-column prop="word" label="Keyword" min-width="120" />
+                <el-table-column prop="value" label="Score" width="90">
+                  <template #default="{ row }">
+                    {{ formatScore(row.value) }}
+                  </template>
+                </el-table-column>
+                <el-table-column label="Relative" width="100">
+                  <template #default="{ row }">
+                    <el-progress
+                      :percentage="getPercentage(row.value, metric.key)"
+                      :color="'#16a34a'"
+                      :show-text="false"
+                      :stroke-width="6"
+                    />
+                  </template>
+                </el-table-column>
+              </el-table>
+            </div>
+          </el-col>
+        </el-row>
+
+        <!-- Co-occurrence heatmap -->
+        <div
+          class="network-card"
+          v-if="store.metrics.cooccurrence_matrix.keywords.length > 0"
+        >
+          <h4 class="network-card__title">Co-occurrence Matrix</h4>
+          <div ref="matrixChartRef" class="matrix-chart"></div>
+        </div>
+      </template>
+    </template>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted } from 'vue'
-import client from '@/api/client'
-import type { GraphData, GraphNode } from '@/components/charts/NetworkForceGraph.vue'
+import { computed, onMounted, onUnmounted, ref, watch, nextTick } from 'vue'
+import * as echarts from 'echarts'
+import { useNetworkStore } from '@/stores/network'
+import type { GraphData } from '@/components/charts/NetworkForceGraph.vue'
+import type { TopCentralNodes } from '@/types/network'
 import NetworkForceGraph from '@/components/charts/NetworkForceGraph.vue'
 import LoadingCard from '@/components/common/LoadingCard.vue'
 import { InfoFilled } from '@element-plus/icons-vue'
 
-interface NetworkNode extends GraphNode {
-  degree_centrality?: number
-  betweenness_centrality?: number
-  eigenvector_centrality?: number
-}
+const store = useNetworkStore()
+const activeTab = ref<'graph' | 'metrics'>('graph')
+const matrixChartRef = ref<HTMLElement | null>(null)
+let matrixChartInstance: echarts.ECharts | null = null
 
-interface RawNetworkData {
-  nodes: NetworkNode[]
-  edges: { source: string; target: string; weight: number }[]
-}
-
-const loading = ref(false)
-const error = ref<string | null>(null)
-const rawData = ref<RawNetworkData>({ nodes: [], edges: [] })
-const minWeight = ref(0)
-const maxWeight = ref(10)
-const selectedNode = ref<NetworkNode | null>(null)
+// ── Graph tab ──
+const maxEdgeWeight = computed(() => {
+  if (!store.data || store.data.edges.length === 0) return 10
+  return Math.max(...store.data.edges.map((e) => e.weight), 1)
+})
 
 const filteredGraphData = computed<GraphData>(() => {
-  const filteredEdges = rawData.value.edges.filter((e) => e.weight >= minWeight.value)
+  if (!store.data) return { nodes: [], edges: [] }
+  const filteredEdges = store.data.edges.filter((e) => e.weight >= store.minWeight)
   const connectedNodeIds = new Set<string>()
   for (const e of filteredEdges) {
     connectedNodeIds.add(e.source)
     connectedNodeIds.add(e.target)
   }
-  const filteredNodes = rawData.value.nodes.filter((n) => connectedNodeIds.has(n.id))
-
+  let filteredNodes = store.data.nodes.filter((n) => connectedNodeIds.has(n.id))
+  // Limit to top 75 nodes by degree for readability
+  filteredNodes = filteredNodes
+    .sort((a, b) => b.symbolSize - a.symbolSize)
+    .slice(0, 75)
+  const topIds = new Set(filteredNodes.map((n) => n.id))
+  const topEdges = filteredEdges.filter((e) => topIds.has(e.source) && topIds.has(e.target))
   return {
     nodes: filteredNodes.map((n) => ({
       id: n.id,
@@ -137,74 +224,257 @@ const filteredGraphData = computed<GraphData>(() => {
       symbolSize: n.symbolSize,
       category: n.category,
     })),
-    edges: filteredEdges,
+    edges: topEdges,
   }
 })
 
-function applyFilter() {
-  // 过滤由 computed 自动处理
+// ── Metrics tab ──
+const statCards = computed(() => {
+  const s = store.metrics?.statistics
+  if (!s) return []
+  return [
+    { label: 'Nodes', value: s.node_count },
+    { label: 'Edges', value: s.edge_count },
+    { label: 'Density', value: s.density.toFixed(4) },
+    { label: 'Communities', value: s.community_count },
+  ]
+})
+
+const centralityMetrics = [
+  { key: 'degree' as const, label: 'Degree Centrality' },
+  { key: 'betweenness' as const, label: 'Betweenness Centrality' },
+  { key: 'closeness' as const, label: 'Closeness Centrality' },
+  { key: 'pagerank' as const, label: 'PageRank' },
+]
+
+function formatScore(value: number): string {
+  if (value === 0) return '0'
+  return value < 0.01 ? value.toExponential(2) : value.toFixed(4)
 }
 
-function resetFilter() {
-  minWeight.value = 0
+function getPercentage(value: number, metricKey: keyof TopCentralNodes): number {
+  const nodes = store.metrics?.top_central_nodes[metricKey]
+  if (!nodes || nodes.length === 0) return 0
+  const maxVal = nodes[0]?.value ?? 1
+  if (maxVal === 0) return 0
+  return Math.round((value / maxVal) * 100)
 }
 
-function handleNodeClick(nodeId: string) {
-  const node = rawData.value.nodes.find((n) => n.id === nodeId)
-  selectedNode.value = node ?? null
+function renderMatrixChart() {
+  const m = store.metrics?.cooccurrence_matrix
+  if (!m || !matrixChartRef.value || m.keywords.length === 0) return
+
+  if (!matrixChartInstance) {
+    matrixChartInstance = echarts.init(matrixChartRef.value)
+  }
+
+  const data: [number, number, number][] = []
+  for (let i = 0; i < m.keywords.length; i++) {
+    for (let j = 0; j < m.keywords.length; j++) {
+      if (m.matrix[i]?.[j]) {
+        data.push([i, j, m.matrix[i][j]])
+      }
+    }
+  }
+
+  matrixChartInstance.setOption({
+    tooltip: {
+      formatter: (p: any) => {
+        const val = p.value as [number, number, number] | undefined
+        if (!val) return ''
+        return `${m.keywords[val[0]]} ↔ ${m.keywords[val[1]]}<br/>Co-occurrence: ${val[2]}`
+      },
+    },
+    grid: { left: 100, right: 40, top: 20, bottom: 100 },
+    xAxis: {
+      type: 'category',
+      data: m.keywords,
+      axisLabel: { rotate: 45, fontSize: 10, color: '#94a3b8' },
+    },
+    yAxis: {
+      type: 'category',
+      data: m.keywords,
+      axisLabel: { fontSize: 10, color: '#94a3b8' },
+    },
+    visualMap: {
+      min: 0,
+      max: Math.max(...data.map((d) => d[2]), 1),
+      calculable: true,
+      orient: 'horizontal',
+      left: 'center',
+      bottom: 0,
+      inRange: { color: ['#dcfce7', '#16a34a', '#14532d'] },
+    },
+    series: [{
+      type: 'heatmap',
+      data,
+      label: { show: false },
+      emphasis: { itemStyle: { shadowBlur: 10, shadowColor: 'rgba(0,0,0,0.25)' } },
+    }],
+  })
 }
 
-async function fetchNetworkData() {
-  loading.value = true
-  error.value = null
-  try {
-    const res = await client.get('/network')
-    rawData.value = res.data as RawNetworkData
-    const edgeWeights = rawData.value.edges.map((e) => e.weight)
-    maxWeight.value = Math.max(...edgeWeights, 1)
-  } catch (err: unknown) {
-    const msg = err instanceof Error ? err.message : '获取网络数据失败'
-    error.value = msg
-    console.error('Network fetch error:', err)
-  } finally {
-    loading.value = false
+function handleResize() {
+  matrixChartInstance?.resize()
+}
+
+function loadMetrics() {
+  if (!store.metrics && !store.metricsLoading) {
+    store.fetchMetrics()
   }
 }
 
+watch(() => store.metrics, () => {
+  if (store.metrics && activeTab.value === 'metrics') {
+    nextTick(() => setTimeout(renderMatrixChart, 200))
+  }
+})
+
+watch(activeTab, (tab) => {
+  if (tab === 'metrics' && store.metrics) {
+    nextTick(() => setTimeout(renderMatrixChart, 200))
+  }
+})
+
 onMounted(() => {
-  fetchNetworkData()
+  store.fetchNetwork()
+  window.addEventListener('resize', handleResize)
+})
+
+onUnmounted(() => {
+  window.removeEventListener('resize', handleResize)
+  matrixChartInstance?.dispose()
 })
 </script>
 
 <style scoped>
-.control-bar {
+/* ── Tabs ── */
+.network-tabs {
   display: flex;
-  align-items: center;
-  gap: 20px;
-  flex-wrap: wrap;
+  gap: 4px;
+  margin-bottom: 20px;
+  background: #ffffff;
+  border-radius: 24px;
+  padding: 6px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  width: fit-content;
 }
 
-.control-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
+.network-tab {
+  height: 36px;
+  padding: 0 20px;
+  border-radius: 20px;
+  border: none;
+  background: transparent;
+  color: #64748b;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.control-label {
-  font-size: 14px;
-  color: var(--text-regular);
-  white-space: nowrap;
+.network-tab:hover {
+  color: #1e293b;
 }
 
-.node-detail-panel {
-  min-height: 300px;
+.network-tab--active {
+  background: #f5f5f5;
+  color: #1e293b;
+  font-weight: 600;
 }
 
-.empty-detail {
+/* ── Card (matches global card style) ── */
+.network-card {
+  background: #ffffff;
+  border-radius: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+  padding: 24px 28px;
+  margin-bottom: 20px;
+}
+
+.network-card--chart {
+  padding: 12px;
+}
+
+.network-card--empty {
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  min-height: 200px;
+  gap: 8px;
+  min-height: 240px;
+  color: #94a3b8;
+  font-size: 13px;
+}
+
+.network-card--stat {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.network-card__title {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1e293b;
+  margin: 0 0 16px 0;
+}
+
+.stat-value {
+  font-size: 24px;
+  font-weight: 700;
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.02em;
+}
+
+.stat-label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+/* ── Control bar ── */
+.control-bar {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.control-label {
+  font-size: 12px;
+  color: #64748b;
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* ── Node detail ── */
+.node-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.node-detail__row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.node-detail__label {
+  font-size: 12px;
+  color: #94a3b8;
+}
+
+.node-detail__value {
+  font-size: 13px;
+  color: #1e293b;
+  font-variant-numeric: tabular-nums;
+}
+
+/* ── Heatmap ── */
+.matrix-chart {
+  width: 100%;
+  height: 480px;
 }
 </style>

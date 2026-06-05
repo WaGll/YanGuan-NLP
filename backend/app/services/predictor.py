@@ -107,8 +107,8 @@ class PredictorService:
     async def _infer_topic(self, tokens: list[str]) -> str | None:
         """基于已训练的 LDA 模型推断新文本的主题。
 
-        从数据库中获取最近一次 LDA 训练的模型参数和词典，
-        对新文本进行主题推理，返回主导主题标签。
+        优先使用磁盘上保存的 LDA 模型进行推理，
+        回退到数据库中关键词匹配法。
 
         Args:
             tokens: 分词结果
@@ -119,7 +119,30 @@ class PredictorService:
         if not tokens:
             return None
 
-        # 获取已训练的 LDA 主题关键词（用于重建模型）
+        # 优先尝试使用保存的 LDA 模型进行推理
+        from app.config import settings
+        from app.services.topic import TopicService
+
+        loaded = TopicService.load_model(settings.data_dir)
+        if loaded is not None:
+            lda_model, dictionary = loaded
+            try:
+                bow = dictionary.doc2bow(tokens)
+                doc_topics = lda_model.get_document_topics(bow, minimum_probability=0.01)
+                if doc_topics:
+                    dominant_topic_idx, _ = max(doc_topics, key=lambda x: x[1])
+                    # 获取主题标签
+                    result = await self.db.execute(
+                        select(Topic.label)
+                        .where(Topic.method == "lda", Topic.topic_index == dominant_topic_idx)
+                    )
+                    label = result.scalar_one_or_none()
+                    if label:
+                        return label
+            except Exception as e:
+                logger.warning("LDA 模型推理失败，回退到关键词匹配: %s", e)
+
+        # 回退: 数据库关键词匹配法
         kw_result = await self.db.execute(
             select(TopicKeyword.word, TopicKeyword.weight, Topic.id, Topic.label)
             .join(Topic, TopicKeyword.topic_id == Topic.id)
@@ -130,7 +153,6 @@ class PredictorService:
         if not kw_rows:
             return None
 
-        # 按主题分组关键词权重
         from collections import defaultdict
 
         topic_words: dict[int, dict[str, float]] = defaultdict(dict)
@@ -139,7 +161,6 @@ class PredictorService:
             topic_words[topic_id][word] = weight
             topic_labels[topic_id] = label or f"主题 {len(topic_labels) + 1}"
 
-        # 简单的关键词匹配法：计算每个主题的匹配得分
         best_topic_id = None
         best_score = 0.0
 

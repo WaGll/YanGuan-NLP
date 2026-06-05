@@ -36,8 +36,14 @@ class NetworkNode(Base, TimestampMixin):
     betweenness_centrality: Mapped[Optional[float]] = mapped_column(
         Float, nullable=True, comment="介数中心性"
     )
+    closeness_centrality: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True, comment="接近中心性"
+    )
     eigenvector_centrality: Mapped[Optional[float]] = mapped_column(
         Float, nullable=True, comment="特征向量中心性"
+    )
+    pagerank: Mapped[Optional[float]] = mapped_column(
+        Float, nullable=True, comment="PageRank 得分"
     )
     community_id: Mapped[Optional[int]] = mapped_column(
         Integer, nullable=True, comment="社区ID（Louvain等算法结果）"

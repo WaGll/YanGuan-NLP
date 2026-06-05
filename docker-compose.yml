@@ -5,18 +5,18 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: gradcareer-backend
+    container_name: yanguan-backend
     ports:
-      - "8000:8000"
+      - "3001:3001"
     volumes:
       - ./backend/data:/app/data:ro
-      - gradcareer_db:/app/data/db
+      - yanguan_db:/app/data/db
     environment:
-      - GC_DATABASE_URL=sqlite+aiosqlite:///./data/db/gradcareer.db
+      - GC_DATABASE_URL=sqlite+aiosqlite:///./data/db/yanguan.db
       - GC_DATA_DIR=/app/data
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/health"]
+      test: ["CMD", "curl", "-f", "http://localhost:3001/api/health"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -25,14 +25,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    container_name: gradcareer-frontend
+    container_name: yanguan-frontend
     ports:
-      - "5173:80"
+      - "3000:80"
     depends_on:
       backend:
         condition: service_healthy
     restart: unless-stopped
 
 volumes:
-  gradcareer_db:
+  yanguan_db:
     driver: local

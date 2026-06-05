@@ -82,7 +82,7 @@ function getChartOption(): echarts.EChartsOption {
       left: 'center',
       bottom: 10,
       inRange: {
-        color: ['#67c23a', '#e6a23c', '#f56c6c'],
+        color: ['#D4F5E5', '#A6E7C9', '#006D44'],
       },
       text: ['高', '低'],
       textStyle: {
@@ -111,7 +111,7 @@ function getChartOption(): echarts.EChartsOption {
 function initChart() {
   if (!chartRef.value) return
   chartInstance = echarts.init(chartRef.value)
-  chartInstance.setOption(getChartOption())
+  chartInstance.setOption(getChartOption(), { notMerge: true })
 }
 
 function handleResize() {
@@ -132,7 +132,7 @@ watch(
   () => props.data,
   () => {
     if (chartInstance) {
-      chartInstance.setOption(getChartOption())
+      chartInstance.setOption(getChartOption(), { notMerge: true })
     }
   },
   { deep: true }

@@ -1,0 +1,162 @@
+- generic [ref=e3]:
+  - banner [ref=e4]:
+    - navigation [ref=e5]:
+      - link "Overview" [ref=e6] [cursor=pointer]:
+        - /url: /dashboard
+      - link "Topics" [ref=e7] [cursor=pointer]:
+        - /url: /topics
+      - link "Sentiment" [ref=e8] [cursor=pointer]:
+        - /url: /sentiment
+      - link "Trends" [ref=e9] [cursor=pointer]:
+        - /url: /trends
+      - link "Network" [ref=e10] [cursor=pointer]:
+        - /url: /network
+      - link "Forecast" [ref=e11] [cursor=pointer]:
+        - /url: /predict
+    - generic [ref=e12]:
+      - generic [ref=e13]: 考研评论
+      - generic [ref=e15]: 2024-12
+      - generic [ref=e17] [cursor=pointer]:
+        - generic:
+          - combobox [ref=e19]
+          - generic [ref=e20]: BERTopic
+        - img [ref=e23]
+      - generic [ref=e25] [cursor=pointer]: WG
+  - generic [ref=e26]:
+    - navigation [ref=e27]:
+      - link "YG" [ref=e28] [cursor=pointer]:
+        - /url: /dashboard
+        - generic [ref=e29]: YG
+      - generic [ref=e30]:
+        - link "Overview" [ref=e31] [cursor=pointer]:
+          - /url: /dashboard
+          - img [ref=e33]
+        - link "Topics" [ref=e37] [cursor=pointer]:
+          - /url: /topics
+          - img [ref=e39]
+        - link "Sentiment" [ref=e42] [cursor=pointer]:
+          - /url: /sentiment
+          - img [ref=e44]
+        - link "Trends" [ref=e46] [cursor=pointer]:
+          - /url: /trends
+          - img [ref=e48]
+        - link "Network" [ref=e50] [cursor=pointer]:
+          - /url: /network
+          - img [ref=e52]
+        - link "Forecast" [ref=e55] [cursor=pointer]:
+          - /url: /predict
+          - img [ref=e57]
+      - generic [ref=e60]:
+        - button "Search (⌘K)" [ref=e61] [cursor=pointer]:
+          - img [ref=e63]
+        - button "Settings" [ref=e65] [cursor=pointer]:
+          - img [ref=e67]
+      - generic [ref=e70] [cursor=pointer]: WG
+    - main [ref=e71]:
+      - generic [ref=e72]:
+        - generic [ref=e73]:
+          - generic [ref=e98]:
+            - generic [ref=e99]: Comments
+            - generic [ref=e100]: 2,934
+            - generic [ref=e101]: total
+          - generic [ref=e102]:
+            - generic [ref=e103]: Positivity
+            - generic [ref=e104]: "--"
+            - generic [ref=e105]: positive sentiment
+          - generic [ref=e106]:
+            - generic [ref=e107]: Topics
+            - generic [ref=e108]: "14"
+            - generic [ref=e109]: BERTopic themes
+          - generic [ref=e110]:
+            - generic [ref=e111]: Keywords
+            - generic [ref=e112]: 4,500+
+            - generic [ref=e113]: tokenized
+        - generic [ref=e78]:
+          - generic [ref=e81]:
+            - generic [ref=e82]: Sentiment Trend
+            - generic [ref=e84]: Monthly
+          - generic [ref=e89]: Sentiment
+        - generic [ref=e95]: Top Keywords
+        - generic [ref=e117]:
+          - generic [ref=e119]: 🎓 Keyword Cloud
+          - generic [ref=e122]:
+            - generic [ref=e123] [cursor=pointer]: 考研
+            - generic [ref=e124] [cursor=pointer]: 备考
+            - generic [ref=e125] [cursor=pointer]: 老师
+            - generic [ref=e126] [cursor=pointer]: 数学
+            - generic [ref=e127] [cursor=pointer]: 专业
+            - generic [ref=e128] [cursor=pointer]: 基础
+            - generic [ref=e129] [cursor=pointer]: 上岸
+            - generic [ref=e130] [cursor=pointer]: 真题
+            - generic [ref=e131] [cursor=pointer]: 时间
+            - generic [ref=e132] [cursor=pointer]: 英语
+            - generic [ref=e133] [cursor=pointer]: 学校
+            - generic [ref=e134] [cursor=pointer]: 专业课
+            - generic [ref=e135] [cursor=pointer]: 数据
+            - generic [ref=e136] [cursor=pointer]: 复试
+            - generic [ref=e137] [cursor=pointer]: 小时
+            - generic [ref=e138] [cursor=pointer]: 本科
+            - generic [ref=e139] [cursor=pointer]: 感谢
+            - generic [ref=e140] [cursor=pointer]: 强化
+            - generic [ref=e141] [cursor=pointer]: 紧张
+            - generic [ref=e142] [cursor=pointer]: 研究生
+            - generic [ref=e143] [cursor=pointer]: 资料
+            - generic [ref=e144] [cursor=pointer]: 推荐
+            - generic [ref=e145] [cursor=pointer]: 建议
+            - generic [ref=e146] [cursor=pointer]: 政治
+            - generic [ref=e147] [cursor=pointer]: 统计
+            - generic [ref=e148] [cursor=pointer]: 工作
+            - generic [ref=e149] [cursor=pointer]: 请问
+            - generic [ref=e150] [cursor=pointer]: 统计学
+            - generic [ref=e151] [cursor=pointer]: 计划
+            - generic [ref=e152] [cursor=pointer]: 选择
+            - generic [ref=e153] [cursor=pointer]: 目标
+            - generic [ref=e154] [cursor=pointer]: 高数
+            - generic [ref=e155] [cursor=pointer]: 内容
+            - generic [ref=e156] [cursor=pointer]: 希望
+            - generic [ref=e157] [cursor=pointer]: 考试
+            - generic [ref=e158] [cursor=pointer]: 阅读
+            - generic [ref=e159] [cursor=pointer]: 代码
+            - generic [ref=e160] [cursor=pointer]: 刷题
+            - generic [ref=e161] [cursor=pointer]: 院校
+            - generic [ref=e162] [cursor=pointer]: 张宇
+            - generic [ref=e163] [cursor=pointer]: 一点
+            - generic [ref=e164] [cursor=pointer]: 去年
+            - generic [ref=e165] [cursor=pointer]: 喜欢
+            - generic [ref=e166] [cursor=pointer]: 努力
+            - generic [ref=e167] [cursor=pointer]: 课程
+            - generic [ref=e168] [cursor=pointer]: 阶段
+            - generic [ref=e169] [cursor=pointer]: 考点
+            - generic [ref=e170] [cursor=pointer]: 双非高校
+            - generic [ref=e171] [cursor=pointer]: 二战
+            - generic [ref=e172] [cursor=pointer]: 一遍
+            - generic [ref=e173] [cursor=pointer]: 跨考
+            - generic [ref=e174] [cursor=pointer]: 大学
+            - generic [ref=e175] [cursor=pointer]: 分享
+            - generic [ref=e176] [cursor=pointer]: 方法
+            - generic [ref=e177] [cursor=pointer]: 发现
+            - generic [ref=e178] [cursor=pointer]: 知识
+            - generic [ref=e179] [cursor=pointer]: 外刊
+            - generic [ref=e180] [cursor=pointer]: 同学
+            - generic [ref=e181] [cursor=pointer]: 分数
+            - generic [ref=e182] [cursor=pointer]: 单词
+            - generic [ref=e183] [cursor=pointer]: 应用统计学
+            - generic [ref=e184] [cursor=pointer]: 毕业
+            - generic [ref=e185] [cursor=pointer]: 成绩
+            - generic [ref=e186] [cursor=pointer]: 专硕
+            - generic [ref=e187] [cursor=pointer]: 两个
+            - generic [ref=e188] [cursor=pointer]: 高考
+            - generic [ref=e189] [cursor=pointer]: Python
+            - generic [ref=e190] [cursor=pointer]: 二本院校
+            - generic [ref=e191] [cursor=pointer]: 一年
+            - generic [ref=e192] [cursor=pointer]: 理解
+            - generic [ref=e193] [cursor=pointer]: 心态
+            - generic [ref=e194] [cursor=pointer]: 东西
+            - generic [ref=e195] [cursor=pointer]: 几个
+            - generic [ref=e196] [cursor=pointer]: 就业
+            - generic [ref=e197] [cursor=pointer]: 结束
+            - generic [ref=e198] [cursor=pointer]: 不到
+            - generic [ref=e199] [cursor=pointer]: 计算机
+            - generic [ref=e200] [cursor=pointer]: 成功
+            - generic [ref=e201] [cursor=pointer]: 线代
+            - generic [ref=e202] [cursor=pointer]: 学生

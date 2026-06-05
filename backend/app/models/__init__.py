@@ -6,6 +6,8 @@
 
 from app.models.base import Base, TimestampMixin  # noqa: F401
 from app.models.comment import Comment  # noqa: F401
+from app.models.comment_group import CommentGroup  # noqa: F401
+from app.models.emote import CommentEmote, EmoteType  # noqa: F401
 from app.models.keyword import Keyword  # noqa: F401
 from app.models.network import NetworkEdge, NetworkNode  # noqa: F401
 from app.models.pipeline import PipelineRun  # noqa: F401
