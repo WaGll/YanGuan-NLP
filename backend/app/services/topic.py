@@ -1221,18 +1221,21 @@ class TopicService:
                 llm_label = r["label"]
                 confidence = r["confidence"]
                 needs_review = r.get("needs_review", False)
+                rule_label = tm.business_label  # 保存规则标签（覆盖前）
 
-                tm.business_label = llm_label
+                # 始终记录 LLM 标签
+                tm.business_label_llm = llm_label
                 tm.business_label_confidence = confidence
                 tm.needs_review = needs_review
 
-                # 如果 LLM 标签与规则标签不同，记录 LLM 版本
-                if llm_label != tm.business_label:
-                    tm.business_label_llm = llm_label
+                # 仅在 LLM 置信度足够时替换规则标签
+                if confidence >= 0.3 and llm_label != rule_label:
+                    tm.business_label = llm_label
+                    tm.needs_review = False  # 高置信度无需人工审核
 
                 logger.info(
                     "LLM 精炼 [topic %d]: conf=%.2f review=%s → '%s'",
-                    topic_idx, confidence, needs_review, llm_label,
+                    topic_idx, confidence, tm.needs_review, llm_label,
                 )
 
             await self.db.flush()

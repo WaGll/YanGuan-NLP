@@ -101,3 +101,7 @@ node_modules/
 dist/
 .vite/
 *.tsbuildinfo
+
+# Claude Code (excluded from public repo)
+.claude/
+CLAUDE.md

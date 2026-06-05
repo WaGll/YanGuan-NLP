@@ -29,4 +29,17 @@ export default defineConfig({
       },
     },
   },
+  build: {
+    target: 'es2022',
+    cssCodeSplit: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          'element-plus': ['element-plus'],
+          'echarts': ['echarts'],
+        },
+      },
+    },
+    chunkSizeWarningLimit: 800,
+  },
 })

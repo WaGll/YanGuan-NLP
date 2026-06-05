@@ -6,11 +6,22 @@ FastAPI 应用入口
 
 import logging
 from contextlib import asynccontextmanager
-from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.aggregation import router as aggregation_router
+from app.api.coherence import router as coherence_router
+from app.api.dashboard import router as dashboard_router
+from app.api.emotes import router as emotes_router
+from app.api.keywords import router as keywords_router
+from app.api.llm import router as llm_router
+from app.api.network import router as network_router
+from app.api.predict import router as predict_router
+from app.api.sentiment import router as sentiment_router
+from app.api.topic_sentiment import router as topic_sentiment_router
+from app.api.topics import router as topics_router
+from app.api.trends import router as trends_router
 from app.config import settings
 from app.database import init_db
 
@@ -79,62 +90,15 @@ async def health_check():
 # 注册各模块路由
 # =============================================================================
 
-# 仪表盘
-from app.api.dashboard import router as dashboard_router  # noqa: E402
-
 app.include_router(dashboard_router, prefix="/api")
-
-# 情感分析
-from app.api.sentiment import router as sentiment_router  # noqa: E402
-
 app.include_router(sentiment_router, prefix="/api")
-
-# 关键词
-from app.api.keywords import router as keywords_router  # noqa: E402
-
 app.include_router(keywords_router, prefix="/api")
-
-# 主题分析
-from app.api.topics import router as topics_router  # noqa: E402
-
 app.include_router(topics_router, prefix="/api")
-
-# 主题×情感联合分析
-from app.api.topic_sentiment import router as topic_sentiment_router  # noqa: E402
-
 app.include_router(topic_sentiment_router, prefix="/api")
-
-# 趋势分析
-from app.api.trends import router as trends_router  # noqa: E402
-
 app.include_router(trends_router, prefix="/api")
-
-# 共现网络
-from app.api.network import router as network_router  # noqa: E402
-
 app.include_router(network_router, prefix="/api")
-
-# 实时预测
-from app.api.predict import router as predict_router  # noqa: E402
-
 app.include_router(predict_router, prefix="/api")
-
-# 表情分析
-from app.api.emotes import router as emotes_router  # noqa: E402
-
 app.include_router(emotes_router, prefix="/api")
-
-# 短文本聚合管理
-from app.api.aggregation import router as aggregation_router  # noqa: E402
-
 app.include_router(aggregation_router, prefix="/api")
-
-# 双轨 Coherence 评估
-from app.api.coherence import router as coherence_router  # noqa: E402
-
 app.include_router(coherence_router, prefix="/api")
-
-# LLM 标签管理
-from app.api.llm import router as llm_router  # noqa: E402
-
 app.include_router(llm_router, prefix="/api")

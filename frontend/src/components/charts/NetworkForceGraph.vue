@@ -136,6 +136,12 @@ function handleResize() {
   chartInstance?.resize()
 }
 
+function resetView() {
+  if (chartInstance) {
+    chartInstance.dispatchAction({ type: 'restore' })
+  }
+}
+
 onMounted(() => {
   initChart()
   window.addEventListener('resize', handleResize)
@@ -145,6 +151,8 @@ onUnmounted(() => {
   window.removeEventListener('resize', handleResize)
   chartInstance?.dispose()
 })
+
+defineExpose({ resetView })
 
 watch(
   () => props.graphData,

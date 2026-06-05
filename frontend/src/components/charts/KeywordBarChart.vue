@@ -69,14 +69,29 @@ function getChartOption(): echarts.EChartsOption {
     series: [{
       type: 'bar',
       barWidth: 20,
-      barCategoryGap: '12px',
+      barCategoryGap: '30px',
       data: items.map((d, i) => {
         const isTop = i === items.length - 1
         return {
           value: d.frequency,
           itemStyle: {
             color: isTop ? '#16a34a' : '#b7d7c5',
-            borderRadius: [0, 9999, 9999, 0],
+            borderRadius: [9999, 9999, 9999, 9999],
+            decal: {
+              symbol: 'diamond',
+              symbolSize: 0.6,
+              color: 'rgba(255,255,255,0.25)',
+              dashArrayX: [3, 6],
+              dashArrayY: [1, 3],
+              rotation: -0.45,
+            },
+          },
+          emphasis: {
+            itemStyle: {
+              color: '#16a34a',
+              shadowBlur: 12,
+              shadowColor: 'rgba(22, 163, 74, 0.35)',
+            },
           },
           label: isTop && delta ? {
             show: true,

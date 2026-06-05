@@ -14,9 +14,7 @@ v2:
 import hashlib
 import json
 import logging
-import time as _time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
 
 import httpx
 
@@ -24,21 +22,26 @@ from app.config import settings
 
 logger = logging.getLogger(__name__)
 
-# ---- 批量主题命名 Prompt 模板 ----
-BATCH_NAMING_PROMPT = """为以下 {n_topics} 个考研主题生成简洁中文名称（4-8字）。如果候选标签合理则直接返回。
+# ---- Prompt 模板 ----
+SINGLE_PROMPT = """给这个考研评论主题起中文名（4-8字）。参考候选标签但不要照抄。
+
+关键词: {keywords}
+候选: {rule_label} | 领域: {domain_hint}
+评论: {comment_1}
+
+只输出主题名（4-8个汉字），不要序号、标点或任何解释："""
+
+BATCH_NAMING_PROMPT = """给 {n_topics} 个考研评论主题起中文名（4-8字）。每个主题给出了关键词、候选标签和示例评论，参考候选标签但不要照抄。
 
 {topics_section}
 
-只返回编号和名称：
-0: 名称
-1: 名称
-..."""
+必须严格按此格式回复（序号从0开始，每行一个）：
+0: 概率论与统计
+1: 英语单词背诵"""
 
-SINGLE_TOPIC_TEMPLATE = """主题 {idx}:
-关键词: {keywords}
-评论: {comment_1} {comment_2}
-候选: {rule_label} | 领域: {domain_hint} | 质量: {quality_tier}
----"""
+SINGLE_TOPIC_TEMPLATE = """[{idx}] 关键词: {keywords}
+    候选: {rule_label} | 领域: {domain_hint}
+    评论: {comment_1}"""
 
 
 def _quality_tier(coherence: float) -> str:
@@ -128,7 +131,7 @@ class LLMCache:
 
 
 # ---- 全局缓存单例 ----
-_global_cache: Optional[LLMCache] = None
+_global_cache: LLMCache | None = None
 
 
 def get_cache() -> LLMCache:
@@ -161,14 +164,14 @@ class LLMLabeler:
 
     def __init__(
         self,
-        base_url: Optional[str] = None,
-        model: Optional[str] = None,
-        timeout: Optional[float] = None,
+        base_url: str | None = None,
+        model: str | None = None,
+        timeout: float | None = None,
     ):
         self.base_url = (base_url or settings.ollama_base_url).rstrip("/")
         self.model = model or settings.ollama_model
         self.timeout = timeout if timeout is not None else settings.ollama_timeout
-        self._client: Optional[httpx.AsyncClient] = None
+        self._client: httpx.AsyncClient | None = None
         self._cache = get_cache()
 
     async def _get_client(self) -> httpx.AsyncClient:
@@ -278,46 +281,58 @@ class LLMLabeler:
             results.sort(key=lambda x: x.get("topic_index", 0))
             return results
 
-        # 3. 构建 Prompt
-        sections = []
-        for local_idx, topic in uncached:
-            _, t = local_idx, topic
-            comments = t.get("comments", [])
-            c1 = (comments[0][:80] + "..." if comments[0] and len(comments[0]) > 80 else (comments[0] or "（无）"))
-            c2 = ""
-            if len(comments) > 1:
-                c2_val = comments[1] or ""
-                c2 = " " + (c2_val[:80] + "..." if len(c2_val) > 80 else c2_val)
-            sections.append(
-                SINGLE_TOPIC_TEMPLATE.format(
-                    idx=t.get("topic_index", 0),
-                    keywords=", ".join(t.get("keywords", [])[:10]),
-                    comment_1=c1,
-                    comment_2=c2,
-                    rule_label=t.get("rule_label", ""),
-                    domain_hint=t.get("domain_hint", "未识别"),
-                    quality_tier=_quality_tier(t.get("coherence_score", 0.0)),
-                )
+        # 3. 构建 Prompt（单主题/批量分别处理）
+        if len(uncached) == 1:
+            # 单主题模式 — 最可靠
+            _, topic = uncached[0]
+            comments = topic.get("comments", [])
+            raw_comment = comments[0] if comments else ""
+            c1 = raw_comment[:80] + "..." if raw_comment and len(raw_comment) > 80 else (raw_comment or "（无）")
+            prompt = SINGLE_PROMPT.format(
+                keywords=", ".join(topic.get("keywords", [])[:10]),
+                comment_1=c1,
+                rule_label=topic.get("rule_label", ""),
+                domain_hint=topic.get("domain_hint", "未识别"),
             )
+            system_msg = "只输出一个4-8字的考研主题中文名，不要序号、引导语或解释。"
+        else:
+            sections = []
+            for _, topic in uncached:
+                comments = topic.get("comments", [])
+                raw_comment = comments[0] if comments else ""
+                c1 = raw_comment[:80] + "..." if raw_comment and len(raw_comment) > 80 else (raw_comment or "（无）")
+                sections.append(
+                    SINGLE_TOPIC_TEMPLATE.format(
+                        idx=topic.get("topic_index", 0),
+                        keywords=", ".join(topic.get("keywords", [])[:10]),
+                        comment_1=c1,
+                        rule_label=topic.get("rule_label", ""),
+                        domain_hint=topic.get("domain_hint", "未识别"),
+                    )
+                )
+            prompt = BATCH_NAMING_PROMPT.format(
+                n_topics=len(uncached),
+                topics_section="\n".join(sections),
+            )
+            system_msg = "你是考研主题命名器。严格按'序号: 标签名'格式逐行输出，每行一个主题。标签必须是4-8字中文，不要输出解释、标点或'名称'占位符。"
 
-        prompt = BATCH_NAMING_PROMPT.format(
-            n_topics=len(uncached),
-            topics_section="\n".join(sections),
-        )
-
-        # 4. 调用 LLM（使用 chat 端点以正确处理 qwen3 thinking 模式）
+        # 4. 调用 LLM（qwen2.5:3b 无 thinking 模式，响应快速）
         try:
             client = await self._get_client()
-            # num_predict 需足够大以容纳 thinking tokens + 实际响应
+            # num_predict 无需容纳 thinking tokens，token 预算大幅降低
             resp = await client.post(
                 f"{self.base_url}/api/chat",
                 json={
                     "model": self.model,
-                    "messages": [{"role": "user", "content": prompt}],
+                    "messages": [
+                        {"role": "system", "content": system_msg},
+                        {"role": "user", "content": prompt},
+                    ],
                     "stream": False,
                     "options": {
                         "temperature": 0.3,
-                        "num_predict": max(512 * len(uncached), 2048),
+                        "num_predict": max(256 * len(uncached), 1024),
+                        "num_ctx": settings.llm_num_ctx,
                     },
                 },
             )
@@ -325,15 +340,25 @@ class LLMLabeler:
             if resp.status_code == 200:
                 data = resp.json()
                 llm_output = data.get("message", {}).get("content", "").strip()
-                parsed = self._parse_batch_response(llm_output, len(uncached))
+
+                # 单主题模式: LLM 输出即标签，无需解析
+                if len(uncached) == 1:
+                    _, topic = uncached[0]
+                    label = self._clean_label(llm_output)
+                    if not label or len(label) < 2:
+                        label = topic.get("rule_label", "")
+                    parsed = {0: label}
+                else:
+                    parsed = self._parse_batch_response(llm_output, len(uncached))
 
                 for local_idx, label in parsed.items():
                     _, topic = uncached[local_idx]
                     rule_label = topic.get("rule_label", "")
                     coherence = topic.get("coherence_score", 0.0)
 
-                    # 清理标签
-                    label = self._clean_label(label)
+                    # 清理标签（单主题已在上面清理，批量模式二次确保）
+                    if len(uncached) > 1:
+                        label = self._clean_label(label)
                     if not label or len(label) < 2:
                         label = rule_label
 
@@ -444,7 +469,7 @@ class LLMLabeler:
                 len(parsed),
                 expected_count,
             )
-            fallback = [l.strip() for l in lines if l.strip() and not l.strip().startswith("#")]
+            fallback = [line.strip() for line in lines if line.strip() and not line.strip().startswith("#")]
             for i, label in enumerate(fallback):
                 if i not in parsed:
                     parsed[i] = label
@@ -458,28 +483,32 @@ class LLMLabeler:
     @staticmethod
     def _clean_label(label: str) -> str:
         """清理 LLM 输出的标签。"""
+        import re
+
         # 1. 去掉引号
         for char in ['"', '"', '"', "'", "'", "'", '「', '」', '『', '』']:
             label = label.replace(char, "")
-        # 2. 去掉常见前缀
+        # 2. 去掉序号前缀: "3: xxx", "3：xxx", "3. xxx", "3) xxx", "3、xxx"
+        label = re.sub(r"^\s*\d+\s*[:：\.\)、]\s*", "", label)
+        # 3. 去掉常见前缀
         for prefix in [
             "主题名：", "主题名:", "标签：", "标签:", "主题：",
             "主题:", "主题标签：", "主题标签:", "名称：", "名称:",
         ]:
             if prefix in label:
                 label = label.split(prefix)[-1].strip()
-        # 3. 多行/多句 → 取最短有效行
-        lines = [l.strip() for l in label.split("\n") if l.strip()]
+        # 4. 多行/多句 → 取最短有效行
+        lines = [line.strip() for line in label.split("\n") if line.strip()]
         if lines:
-            valid = [l for l in lines if 3 <= len(l) <= 12]
+            valid = [line for line in lines if 3 <= len(line) <= 12]
             if valid:
                 label = min(valid, key=len)
             else:
                 label = lines[0]
-        # 4. 去掉句号等结束标点
+        # 5. 去掉句号等结束标点
         for punct in ["。", "，", "、", "！", "？", ".", ",", "!", "）", ")"]:
             label = label.rstrip(punct)
-        # 5. 长度截断
+        # 6. 长度截断
         if len(label) > 12:
             label = label[:12]
         return label.strip()

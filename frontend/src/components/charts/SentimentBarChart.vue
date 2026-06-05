@@ -63,14 +63,26 @@ function getChartOption(): echarts.EChartsOption {
       {
         name: 'CV平均准确率',
         type: 'bar',
-        data: means.map((m, i) => ({
-          value: m,
+        data: means.map((_m, i) => ({
+          value: means[i],
           itemStyle: {
-            color: new echarts.graphic.LinearGradient(0, 0, 1, 0, [
-              { offset: 0, color: '#006D44' },
-              { offset: 1, color: '#A6E7C9' },
-            ]),
-            borderRadius: [4, 4, 4, 4],
+            color: '#b7d7c5',
+            borderRadius: [9999, 9999, 9999, 9999],
+            decal: {
+              symbol: 'diamond',
+              symbolSize: 0.6,
+              color: 'rgba(255,255,255,0.25)',
+              dashArrayX: [3, 6],
+              dashArrayY: [1, 3],
+              rotation: -0.45,
+            },
+          },
+          emphasis: {
+            itemStyle: {
+              color: '#16a34a',
+              shadowBlur: 12,
+              shadowColor: 'rgba(22, 163, 74, 0.35)',
+            },
           },
         })),
         barWidth: 20,
@@ -99,8 +111,13 @@ function getChartOption(): echarts.EChartsOption {
         barGap: '-100%',
         z: 0,
         itemStyle: {
-          color: 'rgba(166, 231, 201, 0.3)',
-          borderRadius: [4, 4, 4, 4],
+          color: 'rgba(183, 215, 197, 0.4)',
+          borderRadius: [9999, 9999, 9999, 9999],
+        },
+        emphasis: {
+          itemStyle: {
+            color: 'rgba(22, 163, 74, 0.3)',
+          },
         },
         label: { show: false },
         tooltip: { show: false },

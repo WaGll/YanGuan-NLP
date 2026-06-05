@@ -31,6 +31,9 @@
             :show-input-controls="false"
             style="width: 240px"
           />
+          <el-button size="small" @click="resetForceGraph">
+            <el-icon><RefreshLeft /></el-icon> Reset
+          </el-button>
           <el-button size="small" @click="store.fetchNetwork" :loading="store.loading">
             Refresh
           </el-button>
@@ -58,6 +61,7 @@
         <el-col :xs="24" :lg="17">
           <div class="network-card network-card--chart">
             <NetworkForceGraph
+              ref="forceGraphRef"
               :graphData="filteredGraphData"
               @node-click="store.selectNode"
             />
@@ -189,12 +193,17 @@ import type { GraphData } from '@/components/charts/NetworkForceGraph.vue'
 import type { TopCentralNodes } from '@/types/network'
 import NetworkForceGraph from '@/components/charts/NetworkForceGraph.vue'
 import LoadingCard from '@/components/common/LoadingCard.vue'
-import { InfoFilled } from '@element-plus/icons-vue'
+import { InfoFilled, RefreshLeft } from '@element-plus/icons-vue'
 
 const store = useNetworkStore()
 const activeTab = ref<'graph' | 'metrics'>('graph')
 const matrixChartRef = ref<HTMLElement | null>(null)
+const forceGraphRef = ref<InstanceType<typeof NetworkForceGraph> | null>(null)
 let matrixChartInstance: echarts.ECharts | null = null
+
+function resetForceGraph() {
+  forceGraphRef.value?.resetView()
+}
 
 // ── Graph tab ──
 const maxEdgeWeight = computed(() => {

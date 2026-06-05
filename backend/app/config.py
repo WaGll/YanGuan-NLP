@@ -5,7 +5,6 @@
 """
 
 from pathlib import Path
-from typing import Optional
 
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -36,13 +35,13 @@ class Settings(BaseSettings):
     database_url: str = f"sqlite+aiosqlite:///{_BACKEND_DIR / 'gradcareer.db'}"
 
     # --- 资源文件路径（若未设置则自动解析到 data_dir 下） ---
-    stopwords_path: Optional[Path] = None
-    custom_dict_path: Optional[Path] = None
-    synonym_path: Optional[Path] = None
+    stopwords_path: Path | None = None
+    custom_dict_path: Path | None = None
+    synonym_path: Path | None = None
 
     # --- BERTopic 模型配置 ---
     bertopic_model_name: str = "shibing624/text2vec-base-chinese"
-    bertopic_model_path: Optional[Path] = None  # 本地模型路径，None=自动查找（优先本地 bge-small-zh-v1.5）
+    bertopic_model_path: Path | None = None  # 本地模型路径，None=自动查找（优先本地 bge-small-zh-v1.5）
 
     # --- 分词器配置 ---
     tokenizer_backend: str = "jieba"  # "jieba" | "pkuseg"
@@ -54,13 +53,14 @@ class Settings(BaseSettings):
 
     # --- Ollama 配置 ---
     ollama_base_url: str = "http://localhost:11434"
-    ollama_model: str = "qwen3:4b"
-    ollama_timeout: float = 120.0  # LLM 调用超时（秒），qwen3 thinking 模式需要更长
+    ollama_model: str = "qwen2.5:3b"  # 无 thinking 模式，更快的主题命名
+    ollama_timeout: float = 60.0  # LLM 调用超时（秒），无 thinking 模式响应更快
 
     # --- LLM 缓存与批处理配置 ---
     llm_cache_enabled: bool = True  # 启用 LLM 标签结果内存缓存
     llm_cache_ttl_hours: int = 24  # 缓存有效时间（小时）
-    llm_batch_size: int = 3  # 单次 LLM 调用最多处理的主题数（thinking 模型需小批次）
+    llm_batch_size: int = 1  # 单次 LLM 调用处理 1 个主题（最可靠，避免标签重复）
+    llm_num_ctx: int = 4096  # Ollama 上下文窗口大小（限制以加速推理）
 
     # --- 服务配置 ---
     host: str = "0.0.0.0"

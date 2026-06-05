@@ -44,13 +44,11 @@ function getChartOption(): echarts.EChartsOption {
       {
         name: 'Sentiment',
         type: 'pie',
-        radius: ['58%', '80%'],
+        radius: ['48%', '78%'],
         center: ['50%', '48%'],
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 8,
-          borderColor: '#ffffff',
-          borderWidth: 3,
         },
         label: {
           show: true,
@@ -72,7 +70,7 @@ function getChartOption(): echarts.EChartsOption {
         data: props.data.map((d) => ({
           name: d.label,
           value: d.count,
-          itemStyle: { color: colorMap[d.label] || '#94a3b8' },
+          itemStyle: { color: colorMap[d.label] || '#b7d7c5' },
         })),
       },
     ],

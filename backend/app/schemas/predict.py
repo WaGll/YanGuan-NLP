@@ -40,3 +40,29 @@ class BatchPredictResponse(BaseModel):
     items: list[BatchPredictItem] = Field(default_factory=list, description="逐条结果")
     total: int = Field(default=0, ge=0, description="总条数")
     avg_sentiment: float | None = Field(None, description="平均情感得分")
+
+
+# ---- 梯度提升预测 ----
+
+class GBPredictResult(BaseModel):
+    """梯度提升预测结果。"""
+
+    sentiment_class: str = Field(default="neutral", description="情感分类")
+    probabilities: dict[str, float] = Field(default_factory=dict, description="各类别概率")
+    model_used: str = Field(default="best", description="使用的模型名称")
+
+
+class GBBatchPredictItem(BaseModel):
+    """梯度提升批量预测单条结果。"""
+
+    index: int = Field(..., ge=0)
+    text: str = Field(default="", description="原始文本（截断至 100 字符）")
+    sentiment_class: str = Field(default="neutral")
+    probabilities: dict[str, float] = Field(default_factory=dict)
+
+
+class GBTrainResult(BaseModel):
+    """梯度提升训练结果。"""
+
+    models: dict = Field(default_factory=dict, description="各模型指标")
+    has_trained: bool = Field(default=False)
