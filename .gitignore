@@ -111,4 +111,8 @@ CLAUDE.md
 
 # Root-level screenshots (moved to images/)
 /dashboard-full.png
+
+# Docs and images (not for upload)
+docs/
+images/
 /network-full.png
