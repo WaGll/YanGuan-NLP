@@ -82,13 +82,14 @@ function buildMask(): void {
   ctx.beginPath(); ctx.arc(580, 480, 250, 0, Math.PI*2); ctx.fill()
   ctx.beginPath(); ctx.arc(1420, 480, 250, 0, Math.PI*2); ctx.fill()
   // Eye rings (dark oval patches around eyes — most recognizable panda feature)
+  // Made larger (rx=140,ry=170) to accommodate more high-frequency words
   ctx.save()
   ctx.translate(720, 880); ctx.rotate(-0.15)
-  ctx.beginPath(); ctx.ellipse(0, 0, 110, 130, 0, 0, Math.PI*2); ctx.fill()
+  ctx.beginPath(); ctx.ellipse(0, 0, 140, 170, 0, 0, Math.PI*2); ctx.fill()
   ctx.restore()
   ctx.save()
   ctx.translate(1280, 880); ctx.rotate(0.15)
-  ctx.beginPath(); ctx.ellipse(0, 0, 110, 130, 0, 0, Math.PI*2); ctx.fill()
+  ctx.beginPath(); ctx.ellipse(0, 0, 140, 170, 0, 0, Math.PI*2); ctx.fill()
   ctx.restore()
 
   // Sample to mask grid
@@ -149,17 +150,17 @@ function isEarRegion(mx: number, my: number): boolean {
 }
 
 // Eye ring region check in mask coords (1000x1000)
-// Eye rings are tilted ellipses at (360,440) and (640,440)
+// Eye rings are tilted ellipses at (360,440) and (640,440), rx=70 ry=85
 function isEyeRingRegion(mx: number, my: number): boolean {
   const COS = Math.cos(-0.15), SIN = Math.sin(-0.15)
   // Left eye ring
   let dx = mx - 360, dy = my - 440
   let rx = dx * COS - dy * SIN, ry = dx * SIN + dy * COS
-  if ((rx*rx)/(55*55) + (ry*ry)/(65*65) <= 1) return true
+  if ((rx*rx)/(70*70) + (ry*ry)/(85*85) <= 1) return true
   // Right eye ring
   dx = mx - 640; dy = my - 440
   rx = dx * COS - dy * SIN; ry = dx * SIN + dy * COS
-  if ((rx*rx)/(55*55) + (ry*ry)/(65*65) <= 1) return true
+  if ((rx*rx)/(70*70) + (ry*ry)/(85*85) <= 1) return true
   return false
 }
 
@@ -227,13 +228,13 @@ function buildPools(): { ear: Pool; eyeRing: Pool; center: Pool; mid: Pool; edge
 function initOcc() { GW = Math.ceil(R / GRID); GH = Math.ceil(R / GRID); occGrid = new Uint8Array(GW * GH) }
 function markOcc(x: number, y: number, w: number, h: number) {
   if (!occGrid) return
-  const m = 1, gx1 = Math.max(0, (x - m) / GRID | 0), gy1 = Math.max(0, (y - m) / GRID | 0)
+  const m = 0, gx1 = Math.max(0, (x - m) / GRID | 0), gy1 = Math.max(0, (y - m) / GRID | 0)
   const gx2 = Math.min(GW, (x + w + m) / GRID + 1 | 0), gy2 = Math.min(GH, (y + h + m) / GRID + 1 | 0)
   for (let gy = gy1; gy < gy2; gy++) for (let gx = gx1; gx < gx2; gx++) occGrid[gy * GW + gx] = 1
 }
 function isOcc(x: number, y: number, w: number, h: number): boolean {
   if (!occGrid) return false
-  const m = 1, gx1 = Math.max(0, (x - m) / GRID | 0), gy1 = Math.max(0, (y - m) / GRID | 0)
+  const m = 0, gx1 = Math.max(0, (x - m) / GRID | 0), gy1 = Math.max(0, (y - m) / GRID | 0)
   const gx2 = Math.min(GW, (x + w + m) / GRID + 1 | 0), gy2 = Math.min(GH, (y + h + m) / GRID + 1 | 0)
   for (let gy = gy1; gy < gy2; gy++) for (let gx = gx1; gx < gx2; gx++) if (occGrid[gy * GW + gx]) return true
   return false
@@ -242,49 +243,60 @@ function isOcc(x: number, y: number, w: number, h: number): boolean {
 // ── Word placement using pools ──
 function placeFromPool(
   ctx: CanvasRenderingContext2D, words: Array<{name:string;value:number}>,
-  pool: Pool, fsMin: number, fsMax: number, fw: number, colors: string[], maxTry: number
+  pool: Pool, fsMin: number, fsMax: number, fw: number, colors: string[], maxTry: number,
+  allowShrink: boolean = true
 ): number {
   if (words.length === 0 || pool.len === 0) return 0
-  // Reset cursor
   pool.cursor = 0
   const maxVal = words[0]?.value ?? 1; const minVal = words[words.length-1]?.value ?? 1
   let count = 0
 
-  // Pre-measure font sizes for each word
   const sizes = words.map(w => {
     const norm = maxVal > minVal ? (w.value - minVal) / (maxVal - minVal) : 0.5
     return fsMin + norm * (fsMax - fsMin)
   })
 
-  // Create offscreen canvas for text measurement
   const measCanvas = document.createElement('canvas')
   const measCtx = measCanvas.getContext('2d')!
 
   for (let wi = 0; wi < words.length; wi++) {
-    const fontSize = sizes[wi]
-    const fontStr = `${fw} ${fontSize}px "PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif`
-    measCtx.font = fontStr
-    const tm = measCtx.measureText(words[wi].name)
-    const tw = tm.width + 2; const th = fontSize * 1.15
+    const targetFS = sizes[wi]
 
-    let placed_ok = false; let px = 0; let py = 0
-    for (let attempt = 0; attempt < maxTry; attempt++) {
-      if (pool.cursor >= pool.len) pool.cursor = 0
-      const ci = pool.cursor++
-      const sx = pool.data[ci * 2], sy = pool.data[ci * 2 + 1]
+    // Try target size first, then progressively shrink down to 50%
+    const shrinkSteps = allowShrink ? [1.0, 0.85, 0.7, 0.55] : [1.0]
+    let placed_ok = false; let px = 0; let py = 0; let finalFS = targetFS
 
-      if (sx + tw > R - 5 || sy + th > R - 5 || sx < 5 || sy < 5) continue
-      if (isOcc(sx, sy, tw, th)) continue
-      placed_ok = true; px = sx; py = sy; break
+    for (const shrink of shrinkSteps) {
+      const fontSize = Math.max(fsMin * 0.5, targetFS * shrink)
+      const fontStr = `${fw} ${fontSize}px "PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif`
+      measCtx.font = fontStr
+      const tm = measCtx.measureText(words[wi].name)
+      const tw = tm.width + 1; const th = fontSize * 1.15
+
+      // Pick a random starting point in the pool for better distribution
+      const startAt = pool.cursor > 0 ? pool.cursor : Math.floor(Math.random() * pool.len)
+      pool.cursor = startAt
+
+      for (let attempt = 0; attempt < maxTry; attempt++) {
+        if (pool.cursor >= pool.len) pool.cursor = 0
+        const ci = pool.cursor++
+        const sx = pool.data[ci * 2], sy = pool.data[ci * 2 + 1]
+
+        if (sx + tw > R - 3 || sy + th > R - 3 || sx < 3 || sy < 3) continue
+        if (isOcc(sx, sy, tw, th)) continue
+        placed_ok = true; px = sx; py = sy; finalFS = fontSize; break
+      }
+      if (placed_ok) break
     }
 
     if (placed_ok) {
+      const fontStr = `${fw} ${finalFS}px "PingFang SC","Microsoft YaHei","Noto Sans SC",sans-serif`
       const color = colors[Math.floor(Math.random() * colors.length)]
       ctx.fillStyle = color
       ctx.font = fontStr
-      ctx.fillText(words[wi].name, px, py + fontSize * 0.85)
-      markOcc(px, py, tw, th)
-      placed.push({ text: words[wi].name, x: px, y: py, w: tw, h: th, fs: fontSize })
+      ctx.fillText(words[wi].name, px, py + finalFS * 0.85)
+      markOcc(px, py, measCtx.measureText(words[wi].name).width + 1, finalFS * 1.15)
+      placed.push({ text: words[wi].name, x: px, y: py, w: measCtx.measureText(words[wi].name).width + 1, h: finalFS * 1.15, fs: finalFS })
       count++
     }
   }
@@ -339,19 +351,19 @@ function renderAll() {
 
   // Prepare word list — pad to >= maxWords
   const sorted = [...props.data].sort((a, b) => b.value - a.value)
-  const N = Math.max(props.maxWords, 1000)
+  const N = Math.max(props.maxWords, 1500)
   const words: Array<{name:string;value:number}> = sorted.map(w => ({...w}))
-  let ri = Math.floor(sorted.length * 0.7)
+  let ri = Math.floor(sorted.length * 0.6)
   while (words.length < N) {
-    if (ri >= sorted.length) ri = Math.floor(sorted.length * 0.7)
-    words.push({ name: sorted[ri].name, value: sorted[ri].value * (0.5 + Math.random() * 0.4) })
+    if (ri >= sorted.length) ri = Math.floor(sorted.length * 0.4)
+    words.push({ name: sorted[ri].name, value: sorted[ri].value * (0.3 + Math.random() * 0.6) })
     ri++
   }
   const total = words.length
-  const eyeCut = Math.floor(total * 0.05)    // top 5% → eye rings (most recognizable feature)
-  const earCut = Math.floor(total * 0.14)    // next 9% → ears
-  const centerCut = Math.floor(total * 0.40) // next 25% → head center
-  const midCut = Math.floor(total * 0.75)    // next 35% → face/body
+  const eyeCut = Math.floor(total * 0.04)    // top 4% → eye rings
+  const earCut = Math.floor(total * 0.12)    // next 8% → ears
+  const centerCut = Math.floor(total * 0.35) // next 23% → head center
+  const midCut = Math.floor(total * 0.70)    // next 35% → face/body
 
   const eyeRingWords = words.slice(0, eyeCut)
   const earWords = words.slice(eyeCut, earCut)
@@ -359,25 +371,17 @@ function renderAll() {
   const midWords = words.slice(centerCut, midCut)
   const edgeWords = words.slice(midCut)
 
-  // Placement — order: edge FIRST (form outline), then mid, center, ears, eye rings LAST
-  // Eye rings are the most recognizable panda feature → largest words, highest priority
+  // ── Placement: edge → mid → center → ears → eye rings ──
   let totalPlaced = 0
-  totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 8, 18, 400, c.low, 300)
-  totalPlaced += placeFromPool(ctx, midWords, pools.mid, 18, 36, 500, c.mid, 400)
-  totalPlaced += placeFromPool(ctx, centerWords, pools.center, 36, 72, 700, c.high, 500)
-  totalPlaced += placeFromPool(ctx, earWords, pools.ear, 72, 180, 700, c.high, 600)
-  totalPlaced += placeFromPool(ctx, eyeRingWords, pools.eyeRing, 80, 200, 700, ['#0a0a1a','#0d0d22','#08081c'], 600)
+  totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 6, 16, 400, c.low, 2500, true)
+  totalPlaced += placeFromPool(ctx, midWords, pools.mid, 14, 32, 500, c.mid, 2000, true)
+  totalPlaced += placeFromPool(ctx, centerWords, pools.center, 28, 64, 700, c.high, 2000, true)
+  totalPlaced += placeFromPool(ctx, earWords, pools.ear, 56, 160, 700, c.high, 1000, true)
+  totalPlaced += placeFromPool(ctx, eyeRingWords, pools.eyeRing, 72, 200, 700, ['#0a0a1a','#0d0d22','#08081c'], 1000, false)
 
-  // Spillovers: try placing leftover words in nearby pools
-  const leftoverEar = earWords.length - Math.min(earWords.length, totalPlaced > earCut ? earCut : 0)
-  if (leftoverEar > 0 && pools.center.len > 0) {
-    pools.center.cursor = 0
-    totalPlaced += placeFromPool(ctx, earWords.slice(-leftoverEar), pools.center, 60, 160, 700, c.high, 500)
-  }
-  const leftoverEye = eyeRingWords.length - Math.min(eyeRingWords.length, totalPlaced > eyeCut ? eyeCut : 0)
-  if (leftoverEye > 0 && pools.center.len > 0) {
-    pools.center.cursor = 0
-    totalPlaced += placeFromPool(ctx, eyeRingWords.slice(-leftoverEye), pools.center, 64, 160, 700, c.high, 500)
+  // Light gap-fill: only edge pool for outline density
+  if (pools.edge.len > 0) {
+    totalPlaced += placeFromPool(ctx, words.slice(0, Math.floor(total * 0.3)), pools.edge, 5, 11, 400, c.low, 200, true)
   }
 
   placedCount.value = placed.length
