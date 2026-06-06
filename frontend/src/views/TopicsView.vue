@@ -128,6 +128,7 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted } from 'vue'
+import { ElMessage } from 'element-plus'
 import { useTopicsStore } from '@/stores/topics'
 import type { TopicItem } from '@/types/topics'
 import LoadingCard from '@/components/common/LoadingCard.vue'
@@ -157,7 +158,7 @@ function getCoherenceColor(score: number | undefined): string {
 }
 
 function showTopicInfo() {
-  // 轻提示：主题模型说明
+  ElMessage.info('主题模型通过 LDA 和 BERTopic 双引擎从评论中自动提取语义主题')
 }
 
 function handleRowClick(row: TopicItem) {

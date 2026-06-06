@@ -1,11 +1,11 @@
 <template>
   <div class="wc-root" :class="{ 'wc-root--dark': isDark }">
     <div class="wc-bar" v-if="showExport">
-      <button class="wc-btn" @click="exportPNG('png')">
+      <button class="wc-btn" @click="exportImage('png')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
         PNG 4K
       </button>
-      <button class="wc-btn" @click="exportPNG('svg')">
+      <button class="wc-btn" @click="exportImage('svg')">
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="16 3 21 3 21 8"/><line x1="4" y1="20" x2="21" y2="3"/></svg>
         SVG
       </button>
@@ -23,7 +23,7 @@ import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
 // ── Types ──
 export interface WordCloudItem { name: string; value: number }
-interface Placed { text: string; x: number; y: number; w: number; h: number; fs: number }
+interface Placed { text: string; x: number; y: number; w: number; h: number; fs: number; color: string }
 interface Pool { data: Int32Array; cursor: number; len: number }
 
 const R = 2000  // internal render size
@@ -58,7 +58,7 @@ function toggleDark() { darkOverride.value = !darkOverride.value; nextTick(() =>
 // ── Colors ──
 const L = {
   bg: '#fafaf7', bamboo: 'rgba(140,155,130,0.15)',
-  high: ['#1a1a2e','#16213e','#0f3460','#1a1a2e','#1c1c30'],
+  high: ['#1a1a2e','#16213e','#0f3460','#1a2744','#1c1c30'],
   mid:  ['#4a4a6a','#3a3a55','#4e4e6a','#444460','#3d3d5c'],
   low:  ['#707088','#787890','#6a6a85','#808098','#686878'],
 }
@@ -144,22 +144,28 @@ function buildDistanceTransform(): void {
 
 // ── Region helpers ──
 function isEarRegion(mx: number, my: number): boolean {
-  const dx1 = mx - 290, dy1 = my - 240; if (dx1*dx1 + dy1*dy1 <= 120*120) return true
-  const dx2 = mx - 710, dy2 = my - 240; if (dx2*dx2 + dy2*dy2 <= 120*120) return true
+  // Canvas ears at (580,480) and (1420,480) with r=250
+  // Mask coords: (290,240) and (710,240) with r=125
+  const R2 = 125 * 125
+  const dx1 = mx - 290, dy1 = my - 240; if (dx1*dx1 + dy1*dy1 <= R2) return true
+  const dx2 = mx - 710, dy2 = my - 240; if (dx2*dx2 + dy2*dy2 <= R2) return true
   return false
 }
 
 // Eye ring region check in mask coords (1000x1000)
 // Eye rings are tilted ellipses at (360,440) and (640,440), rx=70 ry=85
+// Canvas: left eye rotate(-0.15), right eye rotate(+0.15)
+// Inverse: left +0.15, right -0.15 (must use opposite direction)
 function isEyeRingRegion(mx: number, my: number): boolean {
-  const COS = Math.cos(-0.15), SIN = Math.sin(-0.15)
-  // Left eye ring
+  // Left eye ring: canvas rotated -0.15 → inverse +0.15
+  const COS_L = Math.cos(0.15), SIN_L = Math.sin(0.15)
   let dx = mx - 360, dy = my - 440
-  let rx = dx * COS - dy * SIN, ry = dx * SIN + dy * COS
+  let rx = dx * COS_L - dy * SIN_L, ry = dx * SIN_L + dy * COS_L
   if ((rx*rx)/(70*70) + (ry*ry)/(85*85) <= 1) return true
-  // Right eye ring
+  // Right eye ring: canvas rotated +0.15 → inverse -0.15
+  const COS_R = Math.cos(-0.15), SIN_R = Math.sin(-0.15)
   dx = mx - 640; dy = my - 440
-  rx = dx * COS - dy * SIN; ry = dx * SIN + dy * COS
+  rx = dx * COS_R - dy * SIN_R; ry = dx * SIN_R + dy * COS_R
   if ((rx*rx)/(70*70) + (ry*ry)/(85*85) <= 1) return true
   return false
 }
@@ -180,8 +186,8 @@ function buildPools(): { ear: Pool; eyeRing: Pool; center: Pool; mid: Pool; edge
     if (maskBin[i] && distMap[i] < 65535) dists.push(distMap[i])
   }
   dists.sort((a, b) => a - b)
-  const p25 = dists[Math.floor(dists.length * 0.7)] ?? 0
-  const p40 = dists[Math.floor(dists.length * 0.3)] ?? 0
+  const centerThreshold = dists[Math.floor(dists.length * 0.7)] ?? 0  // 70th pctl: inner 30%
+  const midThreshold = dists[Math.floor(dists.length * 0.3)] ?? 0     // 30th pctl: mid↔edge boundary
 
   const total = dists.length
   const eyeRingArr = new Int32Array(total * 2)
@@ -202,9 +208,9 @@ function buildPools(): { ear: Pool; eyeRing: Pool; center: Pool; mid: Pool; edge
         earArr[earN * 2] = rx; earArr[earN * 2 + 1] = ry; earN++
       } else if (isEyeRingRegion(x, y)) {
         eyeRingArr[eyeRingN * 2] = rx; eyeRingArr[eyeRingN * 2 + 1] = ry; eyeRingN++
-      } else if (d >= p25) {
+      } else if (d >= centerThreshold) {
         centerArr[centerN * 2] = rx; centerArr[centerN * 2 + 1] = ry; centerN++
-      } else if (d >= p40) {
+      } else if (d >= midThreshold) {
         midArr[midN * 2] = rx; midArr[midN * 2 + 1] = ry; midN++
       } else {
         edgeArr[edgeN * 2] = rx; edgeArr[edgeN * 2 + 1] = ry; edgeN++
@@ -267,12 +273,14 @@ function placeFromPool(
   const measCanvas = document.createElement('canvas')
   const measCtx = measCanvas.getContext('2d')!
 
+  let dryScans = 0  // consecutive full-pool scans with no placement
   for (let wi = 0; wi < words.length; wi++) {
     const targetFS = sizes[wi]
 
-    // Try target size first, then progressively shrink down to 50%
+    // Try target size first, then progressively shrink
     const shrinkSteps = allowShrink ? [1.0, 0.85, 0.7, 0.55] : [1.0]
     let placed_ok = false; let px = 0; let py = 0; let finalFS = targetFS
+    let cachedTW = 0  // cache measured text width to avoid redundant measureText
 
     for (const shrink of shrinkSteps) {
       const fontSize = Math.max(fsMin * 0.5, targetFS * shrink)
@@ -280,8 +288,9 @@ function placeFromPool(
       measCtx.font = fontStr
       const tm = measCtx.measureText(words[wi].name)
       const tw = tm.width + 1; const th = fontSize * 1.15
+      cachedTW = tw
 
-      // Use current cursor position (interleaved ordering gives even coverage)
+      // Reset cursor if at end (interleaved ordering gives even coverage)
       if (pool.cursor >= pool.len) pool.cursor = 0
 
       for (let attempt = 0; attempt < maxTry; attempt++) {
@@ -302,9 +311,15 @@ function placeFromPool(
       ctx.fillStyle = color
       ctx.font = fontStr
       ctx.fillText(words[wi].name, px, py + finalFS * 0.85)
-      markOcc(px, py, measCtx.measureText(words[wi].name).width + 1, finalFS * 1.15)
-      placed.push({ text: words[wi].name, x: px, y: py, w: measCtx.measureText(words[wi].name).width + 1, h: finalFS * 1.15, fs: finalFS })
+      // Use cached width to avoid redundant measureText call
+      markOcc(px, py, cachedTW, finalFS * 1.15)
+      placed.push({ text: words[wi].name, x: px, y: py, w: cachedTW, h: finalFS * 1.15, fs: finalFS, color })
       count++
+      dryScans = 0
+    } else {
+      // Pool likely saturated — early exit after consecutive failures
+      dryScans++
+      if (dryScans > 50) break
     }
   }
   return count
@@ -336,67 +351,79 @@ function renderAll() {
   const canvas = canvasRef.value
   if (!canvas || props.data.length === 0) return
 
-  canvas.width = R; canvas.height = R
-  const ctx = canvas.getContext('2d')!
-  const c = C()
-  ctx.clearRect(0, 0, R, R)
-  if (c.bg !== 'transparent') { ctx.fillStyle = c.bg; ctx.fillRect(0, 0, R, R) }
+  try {
+    canvas.width = R; canvas.height = R
+    const ctx = canvas.getContext('2d')!
+    const c = C()
+    ctx.clearRect(0, 0, R, R)
+    if (c.bg !== 'transparent') { ctx.fillStyle = c.bg; ctx.fillRect(0, 0, R, R) }
 
-  // Build mask + distance transform
-  buildMask()
-  buildDistanceTransform()
+    // Build mask + distance transform
+    buildMask()
+    buildDistanceTransform()
 
-  // Build position pools
-  const pools = buildPools()
+    // Build position pools
+    const pools = buildPools()
 
-  // Init occupancy grid
-  initOcc()
-  placed = []
+    // Init occupancy grid
+    initOcc()
+    placed = []
 
-  // Draw bamboo background
-  drawBamboo(ctx)
+    // Draw bamboo background
+    drawBamboo(ctx)
 
-  // Prepare word list — pad to >= maxWords
-  const sorted = [...props.data].sort((a, b) => b.value - a.value)
-  const N = Math.max(props.maxWords, 1500)
-  const words: Array<{name:string;value:number}> = sorted.map(w => ({...w}))
-  let ri = Math.floor(sorted.length * 0.6)
-  while (words.length < N) {
-    if (ri >= sorted.length) ri = Math.floor(sorted.length * 0.3)
-    words.push({ name: sorted[ri].name, value: sorted[ri].value * (0.3 + Math.random() * 0.6) })
-    ri++
+    // Prepare word list — pad to >= maxWords
+    const sorted = [...props.data].sort((a, b) => b.value - a.value)
+    const N = Math.max(props.maxWords, 1500)
+    const words: Array<{name:string;value:number}> = sorted.map(w => ({...w}))
+    let ri = Math.floor(sorted.length * 0.6)
+    while (words.length < N) {
+      if (ri >= sorted.length) ri = Math.floor(sorted.length * 0.3)
+      words.push({ name: sorted[ri].name, value: sorted[ri].value * (0.3 + Math.random() * 0.6) })
+      ri++
+    }
+    const total = words.length
+    const eyeCut = Math.floor(total * 0.03)    // top 3%
+    const earCut = Math.floor(total * 0.10)    // next 7%
+    const centerCut = Math.floor(total * 0.35) // next 25%
+    const midCut = Math.floor(total * 0.70)    // next 35%
+
+    const eyeRingWords = words.slice(0, eyeCut)
+    const earWords = words.slice(eyeCut, earCut)
+    const centerWords = words.slice(earCut, centerCut)
+    const midWords = words.slice(centerCut, midCut)
+    const edgeWords = words.slice(midCut)
+
+    // ── Placement: LARGEST first (feature zones) → smallest last (edge outline) ──
+    // Largest words need most space, placed first. Small words fill remaining gaps.
+    let totalPlaced = 0
+    shuffleWords(eyeRingWords); totalPlaced += placeFromPool(ctx, eyeRingWords, pools.eyeRing, 40, 140, 700, c.high, 2000, false)
+    shuffleWords(earWords); totalPlaced += placeFromPool(ctx, earWords, pools.ear, 56, 160, 700, c.high, 1000, true)
+    shuffleWords(centerWords); totalPlaced += placeFromPool(ctx, centerWords, pools.center, 24, 60, 700, c.high, 1500, true)
+    shuffleWords(midWords); totalPlaced += placeFromPool(ctx, midWords, pools.mid, 12, 28, 500, c.mid, 2000, true)
+    shuffleWords(edgeWords); totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 6, 14, 400, c.low, 3000, true)
+
+    // ── Light gap fill: edge (outline) + mid (body) only ──
+    const fillWords = words.slice(0, Math.floor(total * 0.4))
+    if (pools.edge.len > 0) {
+      totalPlaced += placeFromPool(ctx, fillWords, pools.edge, 5, 12, 400, c.low, 200, true)
+    }
+    if (pools.mid.len > 0) {
+      totalPlaced += placeFromPool(ctx, fillWords, pools.mid, 5, 14, 400, c.low, 150, true)
+    }
+
+    placedCount.value = placed.length
+  } catch (err) {
+    console.error('WordCloud render failed:', err)
+    // Draw error message on canvas so user isn't left with blank screen
+    const canvas = canvasRef.value!
+    const ctx = canvas.getContext('2d')!
+    ctx.fillStyle = isDark.value ? '#e0e0e0' : '#64748b'
+    ctx.font = '20px "PingFang SC","Microsoft YaHei",sans-serif'
+    ctx.textAlign = 'center'
+    ctx.fillText('词云渲染失败，请刷新页面', R / 2, R / 2)
+    placedCount.value = 0
   }
-  const total = words.length
-  const eyeCut = Math.floor(total * 0.03)    // top 3%
-  const earCut = Math.floor(total * 0.10)    // next 7%
-  const centerCut = Math.floor(total * 0.35) // next 25%
-  const midCut = Math.floor(total * 0.70)    // next 35%
-
-  const eyeRingWords = words.slice(0, eyeCut)
-  const earWords = words.slice(eyeCut, earCut)
-  const centerWords = words.slice(earCut, centerCut)
-  const midWords = words.slice(centerCut, midCut)
-  const edgeWords = words.slice(midCut)
-
-  // ── Placement: LARGEST first (feature zones) → smallest last (edge outline) ──
-  // Largest words need most space, placed first. Small words fill remaining gaps.
-  let totalPlaced = 0
-  shuffleWords(eyeRingWords); totalPlaced += placeFromPool(ctx, eyeRingWords, pools.eyeRing, 40, 140, 700, ['#0a0a1a','#0d0d22','#08081c'], 2000, false)
-  shuffleWords(earWords); totalPlaced += placeFromPool(ctx, earWords, pools.ear, 56, 160, 700, c.high, 1000, true)
-  shuffleWords(centerWords); totalPlaced += placeFromPool(ctx, centerWords, pools.center, 24, 60, 700, c.high, 1500, true)
-  shuffleWords(midWords); totalPlaced += placeFromPool(ctx, midWords, pools.mid, 12, 28, 500, c.mid, 2000, true)
-  shuffleWords(edgeWords); totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 6, 14, 400, c.low, 3000, true)
-
-  // ── Light gap fill: edge (outline) + mid (body) only ──
-  const fillWords = words.slice(0, Math.floor(total * 0.4))
-  if (pools.edge.len > 0) {
-    totalPlaced += placeFromPool(ctx, fillWords, pools.edge, 5, 12, 400, c.low, 200, true)
-  }
-  if (pools.mid.len > 0) {
-    totalPlaced += placeFromPool(ctx, fillWords, pools.mid, 5, 14, 400, c.low, 150, true)
-  }
-
-  placedCount.value = placed.length
 }
 
 // ── Click ──
@@ -416,7 +443,7 @@ function onClick(e: MouseEvent) {
 }
 
 // ── Export ──
-function exportPNG(fmt: 'png' | 'svg') {
+function exportImage(fmt: 'png' | 'svg') {
   const canvas = canvasRef.value
   if (!canvas) return
   if (fmt === 'png') {
@@ -429,8 +456,29 @@ function exportPNG(fmt: 'png' | 'svg') {
     const c = C()
     let svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${E}" height="${E}" viewBox="0 0 ${R} ${R}">`
     if (c.bg !== 'transparent') svg += `<rect width="${R}" height="${R}" fill="${c.bg}"/>`
+    // Bamboo leaves as SVG paths (same positions as canvas drawBamboo)
+    const leaves = [[160,240,0.6,1.0],[1840,200,-0.5,0.9],[120,800,0.3,0.7],[1880,760,-0.7,0.8],
+      [300,1500,0.8,0.9],[1720,1480,-0.4,0.75],[200,1850,1.0,0.85],[1840,1780,-0.9,0.7],
+      [380,1920,0.5,0.6],[1620,1900,-0.6,0.65]]
+    for (const [cx,cy,ang,sc] of leaves) {
+      const len = 180 * sc, wid = 28 * sc
+      const cosA = Math.cos(ang), sinA = Math.sin(ang)
+      // Transform local coords (lx,ly) → world coords after translate(cx,cy) + rotate(ang)
+      const toW = (lx: number, ly: number): [number, number] =>
+        [cx + lx * cosA - ly * sinA, cy + lx * sinA + ly * cosA]
+      const [x0,y0] = toW(0, 0)
+      const [x1,y1] = toW(wid * 0.4, -len * 0.3)
+      const [x2,y2] = toW(wid, -len * 0.6)
+      const [x3,y3] = toW(0, -len)
+      const [x4,y4] = toW(-wid, -len * 0.6)
+      const [x5,y5] = toW(-wid * 0.4, -len * 0.3)
+      svg += `<path d="M${x0},${y0} C${x1},${y1} ${x2},${y2} ${x3},${y3} C${x4},${y4} ${x5},${y5} ${x0},${y0}" fill="${c.bamboo}"/>`
+      const [m1,m2] = toW(0, -8)
+      const [m3,m4] = toW(0, -len + 20)
+      svg += `<path d="M${m1},${m2} L${m3},${m4}" stroke="${c.bamboo}" stroke-width="${2.4 * sc}" fill="none"/>`
+    }
     for (const pw of placed) {
-      svg += `<text x="${pw.x}" y="${pw.y + pw.fs * 0.85}" font-size="${pw.fs}" font-family="PingFang SC,Microsoft YaHei,Noto Sans SC,sans-serif" fill="${c.high[0]}" font-weight="700">${escapeXml(pw.text)}</text>`
+      svg += `<text x="${pw.x}" y="${pw.y + pw.fs * 0.85}" font-size="${pw.fs}" font-family="PingFang SC,Microsoft YaHei,Noto Sans SC,sans-serif" fill="${pw.color}" font-weight="700">${escapeXml(pw.text)}</text>`
     }
     svg += '</svg>'
     const b = new Blob([svg], { type: 'image/svg+xml' })
@@ -441,20 +489,22 @@ function exportPNG(fmt: 'png' | 'svg') {
 function escapeXml(s: string) { return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;') }
 
 // ── Lifecycle ──
-onMounted(() => {
+onMounted(async () => {
   darkMQL = window.matchMedia('(prefers-color-scheme: dark)')
   prefersDark.value = darkMQL.matches
   darkMQL.addEventListener('change', (e) => {
     prefersDark.value = e.matches
     if (props.darkMode === undefined && !darkOverride.value) nextTick(() => renderAll())
   })
+  // Wait for fonts to load before measuring/rendering text
+  await document.fonts.ready
   nextTick(() => renderAll())
 })
 onUnmounted(() => { darkMQL?.removeEventListener('change', () => {}) })
 watch(() => props.data, () => nextTick(() => renderAll()), { deep: true })
 watch(() => props.maxWords, () => nextTick(() => renderAll()))
 watch(isDark, () => nextTick(() => renderAll()))
-defineExpose({ exportPNG, canvasRef, renderAll })
+defineExpose({ exportImage, canvasRef, renderAll })
 </script>
 
 <style scoped>

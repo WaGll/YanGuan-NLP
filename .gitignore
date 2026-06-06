@@ -121,3 +121,15 @@ images/
 
 # Root-level screenshots
 /network-full.png
+
+# Generated model binaries (produced by run_pipeline.py)
+*.npy
+*.state
+*.id2word
+
+# Coverage reports
+.coverage
+.coverage.*
+
+# npm lock file (project uses pnpm)
+package-lock.json
