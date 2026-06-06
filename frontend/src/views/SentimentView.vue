@@ -1,7 +1,7 @@
 <template>
   <div class="sentiment-page">
     <!-- Row 1: KPI Cards -->
-    <el-row :gutter="20" style="margin-bottom: 20px">
+    <el-row :gutter="20" style="margin-bottom: 28px">
       <el-col :xs="24" :sm="8" v-for="card in kpiCards" :key="card.label">
         <div class="sentiment-card">
           <span class="sentiment-card__label">{{ card.label }}</span>
@@ -12,7 +12,7 @@
     </el-row>
 
     <!-- Row 2: Donut + Trend -->
-    <el-row :gutter="20" style="margin-bottom: 20px">
+    <el-row :gutter="20" style="margin-bottom: 28px">
       <el-col :xs="24" :lg="10">
         <div class="sentiment-card sentiment-card--chart">
           <h3 class="sentiment-card__title">SENTIMENT BREAKDOWN</h3>

@@ -11,7 +11,7 @@
     />
 
     <!-- Row 1: KPI Cards -->
-    <el-row :gutter="20" style="margin-bottom: 20px">
+    <el-row :gutter="20" style="margin-bottom: 28px">
       <el-col :xs="12" :sm="6" v-for="card in statCards" :key="card.label">
         <KpiCard
           :label="card.label"
@@ -23,7 +23,7 @@
     </el-row>
 
     <!-- Row 2: Sentiment Trend + Donut -->
-    <el-row :gutter="20" style="margin-bottom: 20px">
+    <el-row :gutter="20" style="margin-bottom: 28px">
       <el-col :xs="24" :lg="16">
         <div class="dash-card dash-card--chart">
           <SectionHeader title="Sentiment Trend">
@@ -181,7 +181,7 @@ onUnmounted(() => { trendChart?.dispose() })
   border-radius: 24px;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
   padding: 24px 28px;
-  margin-bottom: 20px;
+  margin-bottom: 28px;
 }
 
 .dash-card--chart {

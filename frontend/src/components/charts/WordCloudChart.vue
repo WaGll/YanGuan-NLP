@@ -33,7 +33,7 @@ const COLORS = [
 ]
 
 function createGraduationCapMask(): HTMLImageElement {
-  const s = 256
+  const s = 320
   const canvas = document.createElement('canvas')
   canvas.width = s
   canvas.height = s
@@ -41,62 +41,82 @@ function createGraduationCapMask(): HTMLImageElement {
 
   ctx.fillStyle = '#ffffff'
 
-  // Cap board (trapezoid at top) — wider and sharper
-  const bx = 32, by = 28, bw = s - 64, bh = 44
+  // ── Cap Board (mortarboard) ──
+  // Wide trapezoid at top: narrower at top, wider at bottom
+  const bx = 32, by = 12, bw = s - 64, bh = 64
   ctx.beginPath()
-  ctx.moveTo(bx, by + bh)
-  ctx.lineTo(bx + 16, by)
-  ctx.lineTo(bx + bw - 16, by)
-  ctx.lineTo(bx + bw, by + bh)
+  ctx.moveTo(bx, by + bh)              // bottom-left (32, 76)
+  ctx.lineTo(bx + 20, by)              // top-left (52, 12)
+  ctx.lineTo(bx + bw - 20, by)         // top-right (268, 12)
+  ctx.lineTo(bx + bw, by + bh)         // bottom-right (288, 76)
   ctx.closePath()
   ctx.fill()
 
-  // Cap rim line (horizontal detail line near bottom of board)
+  // ── Board Rim (帽岩) ──
+  // Prominent horizontal line across the board bottom
   ctx.beginPath()
-  ctx.moveTo(bx + 6, by + bh - 8)
-  ctx.lineTo(bx + bw - 6, by + bh - 8)
+  ctx.moveTo(bx + 6, by + bh - 8)      // (38, 68)
+  ctx.lineTo(bx + bw - 6, by + bh - 8) // (282, 68)
+  ctx.lineWidth = 4
+  ctx.strokeStyle = '#ffffff'
+  ctx.stroke()
+
+  // ── Cap Button ──
+  // Prominent circle at center top of board
+  ctx.beginPath()
+  ctx.arc(s / 2, by - 4, 10, 0, Math.PI * 2)  // (160, 8), r=10
+  ctx.fill()
+
+  // ── Cylinder Body ──
+  // Vertical cylinder from board bottom down to y=240
+  // Slight curves on sides for 3D cylindrical appearance
+  const cylTop = by + bh              // 76
+  const cylBottom = 240
+  const cylLeft = 72
+  const cylRight = s - 72             // 248
+  ctx.beginPath()
+  ctx.moveTo(cylLeft, cylTop)
+  // Left side: slight outward curve then back in
+  ctx.bezierCurveTo(cylLeft - 8, cylTop + 60, cylLeft - 8, cylBottom - 30, cylLeft, cylBottom)
+  // Bottom curve (rounded base)
+  ctx.quadraticCurveTo(s / 2, cylBottom + 12, cylRight, cylBottom)
+  // Right side: slight outward curve then back in
+  ctx.bezierCurveTo(cylRight + 8, cylBottom - 30, cylRight + 8, cylTop + 60, cylRight, cylTop)
+  ctx.closePath()
+  ctx.fill()
+
+  // ── Cap Seam Line ──
+  // Vertical center line from board bottom through cylinder
+  ctx.beginPath()
+  ctx.moveTo(s / 2, cylTop)
+  ctx.lineTo(s / 2, cylBottom - 8)
   ctx.lineWidth = 3
   ctx.strokeStyle = '#ffffff'
   ctx.stroke()
 
-  // Cap button (center top of board)
+  // ── Tassel ──
+  // Curving from button area to right edge of cylinder
+  const tasselStartX = s / 2 + 10     // 170
+  const tasselStartY = by + 24        // 36
   ctx.beginPath()
-  ctx.arc(s / 2, by - 2, 7, 0, Math.PI * 2)
-  ctx.fill()
-
-  // Skull cap (rounded dome below)
-  ctx.beginPath()
-  ctx.moveTo(bx + 30, by + bh)
-  ctx.quadraticCurveTo(s / 2, s - 36, bx + bw - 30, by + bh)
-  ctx.closePath()
-  ctx.fill()
-
-  // Skull cap seam line (vertical detail)
-  ctx.beginPath()
-  ctx.moveTo(s / 2, by + bh)
-  ctx.lineTo(s / 2, s - 20)
-  ctx.lineWidth = 2
+  ctx.moveTo(tasselStartX, tasselStartY)
+  ctx.quadraticCurveTo(s - 36, by + 56, cylRight, cylTop + 24)
+  ctx.lineWidth = 6
   ctx.strokeStyle = '#ffffff'
   ctx.stroke()
 
-  // Tassel line
+  // ── Tassel Knot ──
   ctx.beginPath()
-  ctx.moveTo(bx + bw - 30, by + bh - 4)
-  ctx.quadraticCurveTo(bx + bw - 6, by + 72, bx + bw - 20, by + 96)
-  ctx.lineWidth = 5
-  ctx.strokeStyle = '#ffffff'
-  ctx.stroke()
-
-  // Tassel knot
-  ctx.beginPath()
-  ctx.arc(bx + bw - 20, by + 96, 10, 0, Math.PI * 2)
+  ctx.arc(cylRight, cylTop + 24, 12, 0, Math.PI * 2)  // (248, 100), r=12
   ctx.fill()
 
-  // Tassel fringe (3 short lines below knot)
-  for (let fi = -1; fi <= 1; fi++) {
+  // ── Tassel Fringe ──
+  // 4 short vertical lines hanging below knot
+  for (let fi = -1; fi <= 2; fi++) {
+    const fx = cylRight + (fi - 0.5) * 9
     ctx.beginPath()
-    ctx.moveTo(bx + bw - 20 + fi * 6, by + 106)
-    ctx.lineTo(bx + bw - 20 + fi * 8, by + 124)
+    ctx.moveTo(fx, cylTop + 36)       // 112
+    ctx.lineTo(fx - 2, cylTop + 60)   // 136
     ctx.lineWidth = 3
     ctx.strokeStyle = '#ffffff'
     ctx.stroke()
@@ -135,7 +155,6 @@ function getChartOption(maskImg: HTMLImageElement): echarts.EChartsOption {
       gridSize: 4,
       drawOutOfBound: false,
       layoutAnimation: true,
-      shape: 'circle',
       textStyle: {
         fontFamily: 'Inter, PingFang SC, Microsoft YaHei, sans-serif',
         fontWeight: '600',

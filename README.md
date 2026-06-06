@@ -1,15 +1,9 @@
-# 研观 YanGuan-NLP
+# YanGuan-NLP
 
 > 基于 NLP 的考研评论多维度分析平台
 > Bilibili Postgraduate Exam Comment Analysis with NLP
 
-[![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python)](https://www.python.org/)
-[![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi)](https://fastapi.tiangolo.com/)
-[![Vue](https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vue.js)](https://vuejs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org/)
-[![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://www.docker.com/)
-[![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions)](https://github.com/features/actions)
-[![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Python](https://img.shields.io/badge/Python-3.12+-blue?logo=python)](https://www.python.org/) [![FastAPI](https://img.shields.io/badge/FastAPI-0.111+-009688?logo=fastapi)](https://fastapi.tiangolo.com/) [![Vue](https://img.shields.io/badge/Vue-3.x-4FC08D?logo=vue.js)](https://vuejs.org/) [![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?logo=typescript)](https://www.typescriptlang.org/) [![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?logo=docker)](https://www.docker.com/) [![CI](https://img.shields.io/badge/CI-GitHub_Actions-2088FF?logo=githubactions)](https://github.com/features/actions)
 
 ---
 
@@ -62,21 +56,21 @@ CSV (5961 条) → DataLoaderService → SQLite (WAL)
 
 ## 技术栈
 
-| 层级 | 技术 | 关键约定 |
-|------|------|---------|
-| **后端框架** | FastAPI + Uvicorn | async/await 全链路 |
-| **ORM + DB** | SQLAlchemy async + SQLite (aiosqlite, WAL) | Depends(get_db) 注入 |
-| **数据验证** | Pydantic v2 + pydantic-settings | model_validate / model_dump |
-| **中文分词** | jieba + 自定义词典 + 同义词归一化 | NLPResources 单例 |
-| **情感分析** | SnowNLP + scikit-learn (Pipeline 防泄漏) | SVM + RF + LR |
-| **主题建模** | Gensim LDA + BERTopic + UMAP + HDBSCAN | 自动 k + Grid Search |
-| **语义网络** | networkx + 3 种中心性 + Louvain 社区检测 | 共现窗口=5 |
-| **LLM 集成** | Ollama (qwen3:4b) + httpx AsyncClient | 批量标注 + 缓存 |
-| **前端框架** | Vue3 + Vite + TypeScript | Composition API |
-| **UI 组件** | Element Plus + ECharts 5.6 | 按需引入 |
-| **状态管理** | Pinia 2.3 | store 按页面拆分 |
-| **容器化** | Docker Compose | 后端:3001 / 前端:3000 |
-| **CI/CD** | GitHub Actions | Ruff + Mypy + pytest + vue-tsc |
+| 层级               | 技术                                       | 关键约定                       |
+| ------------------ | ------------------------------------------ | ------------------------------ |
+| **后端框架** | FastAPI + Uvicorn                          | async/await 全链路             |
+| **ORM + DB** | SQLAlchemy async + SQLite (aiosqlite, WAL) | Depends(get_db) 注入           |
+| **数据验证** | Pydantic v2 + pydantic-settings            | model_validate / model_dump    |
+| **中文分词** | jieba + 自定义词典 + 同义词归一化          | NLPResources 单例              |
+| **情感分析** | SnowNLP + scikit-learn (Pipeline 防泄漏)   | SVM + RF + LR                  |
+| **主题建模** | Gensim LDA + BERTopic + UMAP + HDBSCAN     | 自动 k + Grid Search           |
+| **语义网络** | networkx + 3 种中心性 + Louvain 社区检测   | 共现窗口=5                     |
+| **LLM 集成** | Ollama (qwen3:4b) + httpx AsyncClient      | 批量标注 + 缓存                |
+| **前端框架** | Vue3 + Vite + TypeScript                   | Composition API                |
+| **UI 组件**  | Element Plus + ECharts 5.6                 | 按需引入                       |
+| **状态管理** | Pinia 2.3                                  | store 按页面拆分               |
+| **容器化**   | Docker Compose                             | 后端:3001 / 前端:3000          |
+| **CI/CD**    | GitHub Actions                             | Ruff + Mypy + pytest + vue-tsc |
 
 ---
 
@@ -136,47 +130,47 @@ python scripts/run_pipeline.py --csv data/xxx.csv   # 自定义 CSV 源文件
 
 ### 核心分析 (10 端点)
 
-| 方法 | 端点 | 功能 |
-|------|------|------|
-| GET | `/api/health` | 健康检查 |
-| GET | `/api/dashboard` | 数据总览（评论数、用户数、情感均值） |
-| GET | `/api/sentiment` | 情感分布 + ML 模型准确率 |
-| GET | `/api/keywords` | 关键词列表 + 词云数据 |
-| GET | `/api/topics` | 主题列表（支持 method=lda/bertopic） |
-| GET | `/api/topic-sentiment` | 主题×情感 联合分布矩阵 |
-| GET | `/api/trends` | 情感/关键词/主题时序趋势 |
-| GET | `/api/network` | 共现网络节点 + 边 + 中心性 |
-| GET | `/api/emotes` | 表情分析 + 情感关联 + 词云 |
-| POST | `/api/predict` | 单条评论实时预测 |
-| POST | `/api/predict/batch` | 批量评论预测 |
+| 方法 | 端点                     | 功能                                 |
+| ---- | ------------------------ | ------------------------------------ |
+| GET  | `/api/health`          | 健康检查                             |
+| GET  | `/api/dashboard`       | 数据总览（评论数、用户数、情感均值） |
+| GET  | `/api/sentiment`       | 情感分布 + ML 模型准确率             |
+| GET  | `/api/keywords`        | 关键词列表 + 词云数据                |
+| GET  | `/api/topics`          | 主题列表（支持 method=lda/bertopic） |
+| GET  | `/api/topic-sentiment` | 主题×情感 联合分布矩阵              |
+| GET  | `/api/trends`          | 情感/关键词/主题时序趋势             |
+| GET  | `/api/network`         | 共现网络节点 + 边 + 中心性           |
+| GET  | `/api/emotes`          | 表情分析 + 情感关联 + 词云           |
+| POST | `/api/predict`         | 单条评论实时预测                     |
+| POST | `/api/predict/batch`   | 批量评论预测                         |
 
 ### 聚合管理 (4 端点)
 
-| 方法 | 端点 | 功能 |
-|------|------|------|
-| POST | `/api/aggregation/run` | 触发重新聚合 |
-| GET | `/api/aggregation/status` | 聚合状态统计（组数、覆盖率、分布） |
-| GET | `/api/aggregation/config` | 当前聚合配置 |
-| PUT | `/api/aggregation/config` | 运行时更新配置 |
+| 方法 | 端点                        | 功能                               |
+| ---- | --------------------------- | ---------------------------------- |
+| POST | `/api/aggregation/run`    | 触发重新聚合                       |
+| GET  | `/api/aggregation/status` | 聚合状态统计（组数、覆盖率、分布） |
+| GET  | `/api/aggregation/config` | 当前聚合配置                       |
+| PUT  | `/api/aggregation/config` | 运行时更新配置                     |
 
 ### Coherence 评估 (5 端点)
 
-| 方法 | 端点 | 功能 |
-|------|------|------|
-| GET | `/api/coherence/compare` | LDA vs BERTopic 双轨对比 |
-| GET | `/api/coherence/per-comment` | 逐评论 coherence（分页） |
-| GET | `/api/coherence/per-comment/{id}` | 单条评论 coherence 详情 |
-| GET | `/api/coherence/mixed-topics` | 混合主题检测 |
-| GET | `/api/coherence/summary` | Dashboard coherence 摘要 |
+| 方法 | 端点                                | 功能                     |
+| ---- | ----------------------------------- | ------------------------ |
+| GET  | `/api/coherence/compare`          | LDA vs BERTopic 双轨对比 |
+| GET  | `/api/coherence/per-comment`      | 逐评论 coherence（分页） |
+| GET  | `/api/coherence/per-comment/{id}` | 单条评论 coherence 详情  |
+| GET  | `/api/coherence/mixed-topics`     | 混合主题检测             |
+| GET  | `/api/coherence/summary`          | Dashboard coherence 摘要 |
 
 ### LLM 管理 (4 端点)
 
-| 方法 | 端点 | 功能 |
-|------|------|------|
-| POST | `/api/llm/relabel` | 触发 LLM 重新标注主题 |
-| GET | `/api/llm/health` | Ollama 健康检查 + 模型信息 |
-| GET | `/api/llm/cache/stats` | LLM 缓存统计 |
-| DELETE | `/api/llm/cache` | 清空 LLM 缓存 |
+| 方法   | 端点                     | 功能                       |
+| ------ | ------------------------ | -------------------------- |
+| POST   | `/api/llm/relabel`     | 触发 LLM 重新标注主题      |
+| GET    | `/api/llm/health`      | Ollama 健康检查 + 模型信息 |
+| GET    | `/api/llm/cache/stats` | LLM 缓存统计               |
+| DELETE | `/api/llm/cache`       | 清空 LLM 缓存              |
 
 ### 测试预测
 
@@ -262,16 +256,16 @@ YanGuan-NLP/
 
 数据来源: B 站考研相关视频评论 (5,961 条)。
 
-| 字段 | 类型 | 说明 |
-|------|------|------|
-| `comment_id` | bigint | B 站评论唯一标识 |
+| 字段                  | 类型   | 说明                 |
+| --------------------- | ------ | -------------------- |
+| `comment_id`        | bigint | B 站评论唯一标识     |
 | `parent_comment_id` | bigint | 父评论 ID (0 = 顶级) |
-| `create_time` | int | Unix 时间戳 |
-| `video_id` | bigint | B 站视频标识 |
-| `content` | text | 评论原文 |
-| `user_id` | bigint | 用户唯一标识 |
-| `nickname` | text | 用户昵称 |
-| `sub_comment_count` | int | 子评论数 |
+| `create_time`       | int    | Unix 时间戳          |
+| `video_id`          | bigint | B 站视频标识         |
+| `content`           | text   | 评论原文             |
+| `user_id`           | bigint | 用户唯一标识         |
+| `nickname`          | text   | 用户昵称             |
+| `sub_comment_count` | int    | 子评论数             |
 
 NLP 衍生字段: `cleaned_content`, `tokens_json`, `bigram_tokens_json`, `token_count`
 
@@ -315,8 +309,8 @@ python scripts/analyze_noise.py
 
 详见 [.claude/memory/roadmap.md](.claude/memory/roadmap.md)
 
-- [x] v1.0 — MVP: 10 API + 9 页面 + Docker + CI
-- [x] v1.1 — BERTopic + 短文本聚合 + 双轨 Coherence + LLM 主题命名
+- [X] v1.0 — MVP: 10 API + 9 页面 + Docker + CI
+- [X] v1.1 — BERTopic + 短文本聚合 + 双轨 Coherence + LLM 主题命名
 - [ ] v1.2 — 趋势预测 (Prophet) + 用户画像 + PDF 报告导出
 - [ ] v2.0 — PostgreSQL + JWT 认证 + AI 摘要 + RAG 问答
 

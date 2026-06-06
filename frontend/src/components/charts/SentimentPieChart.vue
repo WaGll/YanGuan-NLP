@@ -44,8 +44,8 @@ function getChartOption(): echarts.EChartsOption {
       {
         name: 'Sentiment',
         type: 'pie',
-        radius: ['48%', '78%'],
-        center: ['50%', '48%'],
+        radius: ['42%', '82%'],
+        center: ['50%', '50%'],
         avoidLabelOverlap: true,
         itemStyle: {
           borderRadius: 8,
@@ -111,6 +111,6 @@ watch(
 <style scoped>
 .chart-container {
   width: 100%;
-  height: 320px;
+  height: 380px;
 }
 </style>

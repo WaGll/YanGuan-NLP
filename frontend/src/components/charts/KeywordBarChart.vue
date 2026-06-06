@@ -44,8 +44,8 @@ function getChartOption(): echarts.EChartsOption {
     grid: {
       left: 100,
       right: 60,
-      top: 16,
-      bottom: 12,
+      top: 32,
+      bottom: 24,
     },
     xAxis: {
       type: 'value',
@@ -145,6 +145,6 @@ watch(
 <style scoped>
 .chart-container {
   width: 100%;
-  height: 420px;
+  height: 460px;
 }
 </style>

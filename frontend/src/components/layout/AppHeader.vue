@@ -22,9 +22,10 @@
       <span class="header-meta">2024-12</span>
 
       <el-select
-        :model-value="'bertopic'"
+        v-model="selectedModel"
         size="small"
         class="header-select"
+        @change="handleModelChange"
       >
         <el-option label="BERTopic" value="bertopic" />
         <el-option label="LDA" value="lda" />
@@ -36,9 +37,11 @@
 </template>
 
 <script setup lang="ts">
+import { ref } from 'vue'
 import { useRoute } from 'vue-router'
 
 const route = useRoute()
+const selectedModel = ref<'bertopic' | 'lda'>('bertopic')
 
 const navItems = [
   { path: '/dashboard', label: 'Overview' },
@@ -52,6 +55,10 @@ const navItems = [
 function isActive(path: string): boolean {
   if (path === '/dashboard') return route.path === '/dashboard' || route.path === '/'
   return route.path.startsWith(path)
+}
+
+function handleModelChange(value: 'bertopic' | 'lda') {
+  window.dispatchEvent(new CustomEvent('model-change', { detail: value }))
 }
 </script>
 

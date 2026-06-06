@@ -26,7 +26,7 @@
 
     <!-- Utility icons -->
     <div class="icon-rail__utils">
-      <button class="icon-rail__item" title="Search (⌘K)">
+      <button class="icon-rail__item" title="Search (⌘K)" @click="openSearch">
         <el-icon :size="18"><Search /></el-icon>
       </button>
       <button class="icon-rail__item" title="Settings">
@@ -68,6 +68,10 @@ const navItems = [
 function isActive(path: string): boolean {
   if (path === '/dashboard') return route.path === '/dashboard' || route.path === '/'
   return route.path.startsWith(path)
+}
+
+function openSearch() {
+  window.dispatchEvent(new CustomEvent('open-search'))
 }
 </script>
 

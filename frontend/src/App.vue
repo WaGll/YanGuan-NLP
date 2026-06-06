@@ -11,6 +11,7 @@
       <main class="app-main">
         <router-view />
       </main>
+      <SearchDialog />
     </div>
   </div>
 </template>
@@ -18,6 +19,7 @@
 <script setup lang="ts">
 import AppSidebar from '@/components/layout/AppSidebar.vue'
 import AppHeader from '@/components/layout/AppHeader.vue'
+import SearchDialog from '@/components/common/SearchDialog.vue'
 </script>
 
 <style scoped>

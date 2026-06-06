@@ -105,3 +105,10 @@ dist/
 # Claude Code (excluded from public repo)
 .claude/
 CLAUDE.md
+
+# MCP artifacts
+.playwright-mcp/
+
+# Root-level screenshots (moved to images/)
+/dashboard-full.png
+/network-full.png

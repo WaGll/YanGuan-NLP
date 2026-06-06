@@ -24,7 +24,7 @@
           <span class="control-label">Min Edge Weight</span>
           <el-slider
             v-model="store.minWeight"
-            :min="0"
+            :min="1"
             :max="maxEdgeWeight"
             :step="1"
             show-input
@@ -92,8 +92,12 @@
                 <span class="node-detail__value">{{ store.selectedNode.betweenness_centrality?.toFixed(4) ?? '--' }}</span>
               </div>
               <div class="node-detail__row">
-                <span class="node-detail__label">PageRank</span>
+                <span class="node-detail__label">Eigenvector</span>
                 <span class="node-detail__value">{{ store.selectedNode.eigenvector_centrality?.toFixed(4) ?? '--' }}</span>
+              </div>
+              <div class="node-detail__row">
+                <span class="node-detail__label">PageRank</span>
+                <span class="node-detail__value">{{ store.selectedNode.pagerank?.toFixed(4) ?? '--' }}</span>
               </div>
             </div>
           </div>

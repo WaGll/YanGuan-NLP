@@ -74,6 +74,8 @@ async def get_network(
                     "degree_centrality": round(n.degree_centrality, 4) if n.degree_centrality else 0,
                     "betweenness_centrality": round(n.betweenness_centrality, 4) if n.betweenness_centrality else 0,
                     "eigenvector_centrality": round(n.eigenvector_centrality, 4) if n.eigenvector_centrality else 0,
+                    "closeness_centrality": round(n.closeness_centrality, 4) if n.closeness_centrality else 0,
+                    "pagerank": round(n.pagerank, 4) if n.pagerank else 0,
                 }
                 for n in nodes
             ],

@@ -36,6 +36,7 @@ declare module 'vue' {
     NetworkForceGraph: typeof import('./src/components/charts/NetworkForceGraph.vue')['default']
     RouterLink: typeof import('vue-router')['RouterLink']
     RouterView: typeof import('vue-router')['RouterView']
+    SearchDialog: typeof import('./src/components/common/SearchDialog.vue')['default']
     SectionHeader: typeof import('./src/components/common/SectionHeader.vue')['default']
     SentimentBarChart: typeof import('./src/components/charts/SentimentBarChart.vue')['default']
     SentimentPieChart: typeof import('./src/components/charts/SentimentPieChart.vue')['default']
