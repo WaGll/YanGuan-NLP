@@ -164,6 +164,14 @@ function isEyeRingRegion(mx: number, my: number): boolean {
   return false
 }
 
+// Fisher-Yates shuffle for word arrays (used in renderAll)
+function shuffleWords<T>(arr: T[]) {
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+}
+
 function buildPools(): { ear: Pool; eyeRing: Pool; center: Pool; mid: Pool; edge: Pool } {
   if (!maskBin || !distMap) throw new Error('mask not built')
 
@@ -273,9 +281,8 @@ function placeFromPool(
       const tm = measCtx.measureText(words[wi].name)
       const tw = tm.width + 1; const th = fontSize * 1.15
 
-      // Pick a random starting point in the pool for better distribution
-      const startAt = pool.cursor > 0 ? pool.cursor : Math.floor(Math.random() * pool.len)
-      pool.cursor = startAt
+      // Use current cursor position (interleaved ordering gives even coverage)
+      if (pool.cursor >= pool.len) pool.cursor = 0
 
       for (let attempt = 0; attempt < maxTry; attempt++) {
         if (pool.cursor >= pool.len) pool.cursor = 0
@@ -355,15 +362,15 @@ function renderAll() {
   const words: Array<{name:string;value:number}> = sorted.map(w => ({...w}))
   let ri = Math.floor(sorted.length * 0.6)
   while (words.length < N) {
-    if (ri >= sorted.length) ri = Math.floor(sorted.length * 0.4)
+    if (ri >= sorted.length) ri = Math.floor(sorted.length * 0.3)
     words.push({ name: sorted[ri].name, value: sorted[ri].value * (0.3 + Math.random() * 0.6) })
     ri++
   }
   const total = words.length
-  const eyeCut = Math.floor(total * 0.04)    // top 4% → eye rings
-  const earCut = Math.floor(total * 0.12)    // next 8% → ears
-  const centerCut = Math.floor(total * 0.35) // next 23% → head center
-  const midCut = Math.floor(total * 0.70)    // next 35% → face/body
+  const eyeCut = Math.floor(total * 0.03)    // top 3%
+  const earCut = Math.floor(total * 0.10)    // next 7%
+  const centerCut = Math.floor(total * 0.35) // next 25%
+  const midCut = Math.floor(total * 0.70)    // next 35%
 
   const eyeRingWords = words.slice(0, eyeCut)
   const earWords = words.slice(eyeCut, earCut)
@@ -371,20 +378,22 @@ function renderAll() {
   const midWords = words.slice(centerCut, midCut)
   const edgeWords = words.slice(midCut)
 
-  // ── Placement: edge → mid → center → ears → eye rings ──
+  // ── Placement: LARGEST first (feature zones) → smallest last (edge outline) ──
+  // Largest words need most space, placed first. Small words fill remaining gaps.
   let totalPlaced = 0
-  totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 6, 16, 400, c.low, 4000, true)
-  totalPlaced += placeFromPool(ctx, midWords, pools.mid, 14, 32, 500, c.mid, 2000, true)
-  totalPlaced += placeFromPool(ctx, centerWords, pools.center, 28, 64, 700, c.high, 2000, true)
-  totalPlaced += placeFromPool(ctx, earWords, pools.ear, 56, 160, 700, c.high, 1000, true)
-  totalPlaced += placeFromPool(ctx, eyeRingWords, pools.eyeRing, 72, 200, 700, ['#0a0a1a','#0d0d22','#08081c'], 1000, false)
+  shuffleWords(eyeRingWords); totalPlaced += placeFromPool(ctx, eyeRingWords, pools.eyeRing, 40, 140, 700, ['#0a0a1a','#0d0d22','#08081c'], 2000, false)
+  shuffleWords(earWords); totalPlaced += placeFromPool(ctx, earWords, pools.ear, 56, 160, 700, c.high, 1000, true)
+  shuffleWords(centerWords); totalPlaced += placeFromPool(ctx, centerWords, pools.center, 24, 60, 700, c.high, 1500, true)
+  shuffleWords(midWords); totalPlaced += placeFromPool(ctx, midWords, pools.mid, 12, 28, 500, c.mid, 2000, true)
+  shuffleWords(edgeWords); totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 6, 14, 400, c.low, 3000, true)
 
-  // Light gap-fill: edge + mid for outline density and left-side balance
+  // ── Light gap fill: edge (outline) + mid (body) only ──
+  const fillWords = words.slice(0, Math.floor(total * 0.4))
   if (pools.edge.len > 0) {
-    totalPlaced += placeFromPool(ctx, words.slice(0, Math.floor(total * 0.3)), pools.edge, 5, 11, 400, c.low, 300, true)
+    totalPlaced += placeFromPool(ctx, fillWords, pools.edge, 5, 12, 400, c.low, 200, true)
   }
   if (pools.mid.len > 0) {
-    totalPlaced += placeFromPool(ctx, words.slice(0, Math.floor(total * 0.2)), pools.mid, 6, 14, 400, c.low, 200, true)
+    totalPlaced += placeFromPool(ctx, fillWords, pools.mid, 5, 14, 400, c.low, 150, true)
   }
 
   placedCount.value = placed.length
