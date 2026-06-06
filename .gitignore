@@ -112,7 +112,12 @@ CLAUDE.md
 # Root-level screenshots (moved to images/)
 /dashboard-full.png
 
-# Docs and images (not for upload)
-docs/
+# Docs: keep folder structure but not content
+docs/*
+!docs/.gitkeep
+
+# Images (not for upload)
 images/
+
+# Root-level screenshots
 /network-full.png

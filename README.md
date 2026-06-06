@@ -9,9 +9,7 @@
 
 ## 项目简介
 
-**研观 (YanGuan-NLP)** 是一个面向数据分析/商业分析求职场景的 NLP 作品集项目。
-针对 B 站考研相关视频的 5,961 条评论，提供情感分析、主题建模（LDA + BERTopic 双引擎）、
-关键词共现网络、趋势分析、实时预测，以及短文本聚合、双轨 Coherence 评估和 LLM 主题命名增强。
+**YanGuan-NLP** 是一个的 NLP 作品集项目。针对 B 站考研相关视频的 5,961 条评论，提供情感分析、主题建模（LDA + BERTopic 双引擎）、关键词共现网络、趋势分析、实时预测，以及短文本聚合、双轨 Coherence 评估和 LLM 主题命名增强。
 
 ### 核心亮点
 
@@ -303,18 +301,6 @@ python scripts/run_bertopic_only.py
 python scripts/analyze_noise.py
 ```
 
----
-
-## 路线图
-
-详见 [.claude/memory/roadmap.md](.claude/memory/roadmap.md)
-
-- [X] v1.0 — MVP: 10 API + 9 页面 + Docker + CI
-- [X] v1.1 — BERTopic + 短文本聚合 + 双轨 Coherence + LLM 主题命名
-- [ ] v1.2 — 趋势预测 (Prophet) + 用户画像 + PDF 报告导出
-- [ ] v2.0 — PostgreSQL + JWT 认证 + AI 摘要 + RAG 问答
-
----
 
 ## 贡献
 

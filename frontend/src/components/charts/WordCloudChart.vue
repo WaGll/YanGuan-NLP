@@ -81,6 +81,15 @@ function buildMask(): void {
   // Ears
   ctx.beginPath(); ctx.arc(580, 480, 250, 0, Math.PI*2); ctx.fill()
   ctx.beginPath(); ctx.arc(1420, 480, 250, 0, Math.PI*2); ctx.fill()
+  // Eye rings (dark oval patches around eyes — most recognizable panda feature)
+  ctx.save()
+  ctx.translate(720, 880); ctx.rotate(-0.15)
+  ctx.beginPath(); ctx.ellipse(0, 0, 110, 130, 0, 0, Math.PI*2); ctx.fill()
+  ctx.restore()
+  ctx.save()
+  ctx.translate(1280, 880); ctx.rotate(0.15)
+  ctx.beginPath(); ctx.ellipse(0, 0, 110, 130, 0, 0, Math.PI*2); ctx.fill()
+  ctx.restore()
 
   // Sample to mask grid
   const img = ctx.getImageData(0, 0, R, R).data
@@ -139,7 +148,22 @@ function isEarRegion(mx: number, my: number): boolean {
   return false
 }
 
-function buildPools(): { ear: Pool; center: Pool; mid: Pool; edge: Pool } {
+// Eye ring region check in mask coords (1000x1000)
+// Eye rings are tilted ellipses at (360,440) and (640,440)
+function isEyeRingRegion(mx: number, my: number): boolean {
+  const COS = Math.cos(-0.15), SIN = Math.sin(-0.15)
+  // Left eye ring
+  let dx = mx - 360, dy = my - 440
+  let rx = dx * COS - dy * SIN, ry = dx * SIN + dy * COS
+  if ((rx*rx)/(55*55) + (ry*ry)/(65*65) <= 1) return true
+  // Right eye ring
+  dx = mx - 640; dy = my - 440
+  rx = dx * COS - dy * SIN; ry = dx * SIN + dy * COS
+  if ((rx*rx)/(55*55) + (ry*ry)/(65*65) <= 1) return true
+  return false
+}
+
+function buildPools(): { ear: Pool; eyeRing: Pool; center: Pool; mid: Pool; edge: Pool } {
   if (!maskBin || !distMap) throw new Error('mask not built')
 
   const dists: number[] = []
@@ -151,11 +175,12 @@ function buildPools(): { ear: Pool; center: Pool; mid: Pool; edge: Pool } {
   const p40 = dists[Math.floor(dists.length * 0.3)] ?? 0
 
   const total = dists.length
+  const eyeRingArr = new Int32Array(total * 2)
   const earArr = new Int32Array(total * 2)
   const centerArr = new Int32Array(total * 2)
   const midArr = new Int32Array(total * 2)
   const edgeArr = new Int32Array(total * 2)
-  let earN = 0, centerN = 0, midN = 0, edgeN = 0
+  let eyeRingN = 0, earN = 0, centerN = 0, midN = 0, edgeN = 0
 
   for (let y = 0; y < MH; y++) {
     for (let x = 0; x < MW; x++) {
@@ -166,6 +191,8 @@ function buildPools(): { ear: Pool; center: Pool; mid: Pool; edge: Pool } {
 
       if (isEarRegion(x, y)) {
         earArr[earN * 2] = rx; earArr[earN * 2 + 1] = ry; earN++
+      } else if (isEyeRingRegion(x, y)) {
+        eyeRingArr[eyeRingN * 2] = rx; eyeRingArr[eyeRingN * 2 + 1] = ry; eyeRingN++
       } else if (d >= p25) {
         centerArr[centerN * 2] = rx; centerArr[centerN * 2 + 1] = ry; centerN++
       } else if (d >= p40) {
@@ -184,14 +211,15 @@ function buildPools(): { ear: Pool; center: Pool; mid: Pool; edge: Pool } {
       arr[j * 2] = ax; arr[j * 2 + 1] = ay
     }
   }
-  shuffle(earArr, earN); shuffle(centerArr, centerN)
-  shuffle(midArr, midN); shuffle(edgeArr, edgeN)
+  shuffle(earArr, earN); shuffle(eyeRingArr, eyeRingN)
+  shuffle(centerArr, centerN); shuffle(midArr, midN); shuffle(edgeArr, edgeN)
 
   return {
-    ear:    { data: earArr, cursor: 0, len: earN },
-    center: { data: centerArr, cursor: 0, len: centerN },
-    mid:    { data: midArr, cursor: 0, len: midN },
-    edge:   { data: edgeArr, cursor: 0, len: edgeN },
+    ear:     { data: earArr, cursor: 0, len: earN },
+    eyeRing: { data: eyeRingArr, cursor: 0, len: eyeRingN },
+    center:  { data: centerArr, cursor: 0, len: centerN },
+    mid:     { data: midArr, cursor: 0, len: midN },
+    edge:    { data: edgeArr, cursor: 0, len: edgeN },
   }
 }
 
@@ -320,28 +348,36 @@ function renderAll() {
     ri++
   }
   const total = words.length
-  const earCut = Math.floor(total * 0.08)
-  const centerCut = Math.floor(total * 0.35)
-  const midCut = Math.floor(total * 0.70)
+  const eyeCut = Math.floor(total * 0.05)    // top 5% → eye rings (most recognizable feature)
+  const earCut = Math.floor(total * 0.14)    // next 9% → ears
+  const centerCut = Math.floor(total * 0.40) // next 25% → head center
+  const midCut = Math.floor(total * 0.75)    // next 35% → face/body
 
-  const earWords = words.slice(0, earCut)
+  const eyeRingWords = words.slice(0, eyeCut)
+  const earWords = words.slice(eyeCut, earCut)
   const centerWords = words.slice(earCut, centerCut)
   const midWords = words.slice(centerCut, midCut)
   const edgeWords = words.slice(midCut)
 
-  // Placement — order: edge FIRST (form outline), then mid, then center, then ears (fill features)
-  // Edge: low-freq, small words → trace panda outline
+  // Placement — order: edge FIRST (form outline), then mid, center, ears, eye rings LAST
+  // Eye rings are the most recognizable panda feature → largest words, highest priority
   let totalPlaced = 0
   totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 8, 18, 400, c.low, 300)
   totalPlaced += placeFromPool(ctx, midWords, pools.mid, 18, 36, 500, c.mid, 400)
   totalPlaced += placeFromPool(ctx, centerWords, pools.center, 36, 72, 700, c.high, 500)
   totalPlaced += placeFromPool(ctx, earWords, pools.ear, 72, 180, 700, c.high, 600)
+  totalPlaced += placeFromPool(ctx, eyeRingWords, pools.eyeRing, 80, 200, 700, ['#0a0a1a','#0d0d22','#08081c'], 600)
 
-  // If we didn't place all ear words, try center pool
-  const leftover = earWords.length - (totalPlaced > earCut ? earCut : 0)
-  if (leftover > 0 && pools.center.len > 0) {
+  // Spillovers: try placing leftover words in nearby pools
+  const leftoverEar = earWords.length - Math.min(earWords.length, totalPlaced > earCut ? earCut : 0)
+  if (leftoverEar > 0 && pools.center.len > 0) {
     pools.center.cursor = 0
-    totalPlaced += placeFromPool(ctx, earWords.slice(earCut - leftover), pools.center, 60, 160, 700, c.high, 500)
+    totalPlaced += placeFromPool(ctx, earWords.slice(-leftoverEar), pools.center, 60, 160, 700, c.high, 500)
+  }
+  const leftoverEye = eyeRingWords.length - Math.min(eyeRingWords.length, totalPlaced > eyeCut ? eyeCut : 0)
+  if (leftoverEye > 0 && pools.center.len > 0) {
+    pools.center.cursor = 0
+    totalPlaced += placeFromPool(ctx, eyeRingWords.slice(-leftoverEye), pools.center, 64, 160, 700, c.high, 500)
   }
 
   placedCount.value = placed.length
