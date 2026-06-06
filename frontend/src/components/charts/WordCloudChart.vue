@@ -68,56 +68,58 @@ function createPandaMask(): HTMLImageElement {
   ctx.arc(rightEarCX, rightEarCY, earRadius, 0, Math.PI * 2)
   ctx.fill()
 
-  // ── Eye Patches ──
-  // Dark oval eye patches — these are part of panda silhouette
-  // Left eye patch
-  const eyePatchRX = 34
-  const eyePatchRY = 38
-  const leftEyeCX = headCX - headRX * 0.35   // ~115
-  const leftEyeCY = headCY - 8                 // ~164
+  // ── Eye Patches (cut holes) ──
+  // Use destination-out to punch transparent holes for panda's dark eye patches
+  ctx.globalCompositeOperation = 'destination-out'
+  const eyePatchRX = 36
+  const eyePatchRY = 42
+  const leftEyeCX = headCX - headRX * 0.35
+  const leftEyeCY = headCY - 6
   ctx.beginPath()
-  ctx.ellipse(leftEyeCX, leftEyeCY, eyePatchRX, eyePatchRY, -0.25, 0, Math.PI * 2)
+  ctx.ellipse(leftEyeCX, leftEyeCY, eyePatchRX, eyePatchRY, -0.2, 0, Math.PI * 2)
   ctx.fill()
 
-  // Right eye patch
-  const rightEyeCX = headCX + headRX * 0.35  // ~205
-  const rightEyeCY = headCY - 8                // ~164
+  const rightEyeCX = headCX + headRX * 0.35
+  const rightEyeCY = headCY - 6
   ctx.beginPath()
-  ctx.ellipse(rightEyeCX, rightEyeCY, eyePatchRX, eyePatchRY, 0.25, 0, Math.PI * 2)
+  ctx.ellipse(rightEyeCX, rightEyeCY, eyePatchRX, eyePatchRY, 0.2, 0, Math.PI * 2)
   ctx.fill()
 
-  // ── Nose ──
-  // Small triangular nose
+  // ── Nose (cut hole) ──
+  // Small triangular nose hole
   const noseCX = headCX
-  const noseCY = headCY + 18
+  const noseCY = headCY + 20
   ctx.beginPath()
-  ctx.moveTo(noseCX - 14, noseCY - 6)
-  ctx.lineTo(noseCX + 14, noseCY - 6)
-  ctx.lineTo(noseCX, noseCY + 12)
+  ctx.moveTo(noseCX - 16, noseCY - 8)
+  ctx.lineTo(noseCX + 16, noseCY - 8)
+  ctx.lineTo(noseCX, noseCY + 14)
   ctx.closePath()
   ctx.fill()
 
-  // ── Mouth ──
-  // Inverted Y shape below nose
+  // ── Mouth (cut hole) ──
+  // Inverted Y line below nose
   ctx.beginPath()
-  ctx.moveTo(noseCX, noseCY + 12)
-  ctx.lineTo(noseCX, noseCY + 36)
-  ctx.lineWidth = 4
-  ctx.strokeStyle = '#ffffff'
+  ctx.moveTo(noseCX, noseCY + 14)
+  ctx.lineTo(noseCX, noseCY + 40)
+  ctx.lineWidth = 5
+  ctx.strokeStyle = '#000000'
   ctx.stroke()
   // Mouth curves
   ctx.beginPath()
-  ctx.moveTo(noseCX - 20, noseCY + 30)
-  ctx.quadraticCurveTo(noseCX - 6, noseCY + 40, noseCX, noseCY + 36)
-  ctx.lineWidth = 4
-  ctx.strokeStyle = '#ffffff'
+  ctx.moveTo(noseCX - 22, noseCY + 32)
+  ctx.quadraticCurveTo(noseCX - 6, noseCY + 44, noseCX, noseCY + 40)
+  ctx.lineWidth = 5
+  ctx.strokeStyle = '#000000'
   ctx.stroke()
   ctx.beginPath()
-  ctx.moveTo(noseCX + 20, noseCY + 30)
-  ctx.quadraticCurveTo(noseCX + 6, noseCY + 40, noseCX, noseCY + 36)
-  ctx.lineWidth = 4
-  ctx.strokeStyle = '#ffffff'
+  ctx.moveTo(noseCX + 22, noseCY + 32)
+  ctx.quadraticCurveTo(noseCX + 6, noseCY + 44, noseCX, noseCY + 40)
+  ctx.lineWidth = 5
+  ctx.strokeStyle = '#000000'
   ctx.stroke()
+
+  // Restore default composite operation
+  ctx.globalCompositeOperation = 'source-over'
 
   const img = new Image()
   img.src = canvas.toDataURL()
