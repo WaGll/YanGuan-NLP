@@ -373,15 +373,18 @@ function renderAll() {
 
   // ── Placement: edge → mid → center → ears → eye rings ──
   let totalPlaced = 0
-  totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 6, 16, 400, c.low, 2500, true)
+  totalPlaced += placeFromPool(ctx, edgeWords, pools.edge, 6, 16, 400, c.low, 4000, true)
   totalPlaced += placeFromPool(ctx, midWords, pools.mid, 14, 32, 500, c.mid, 2000, true)
   totalPlaced += placeFromPool(ctx, centerWords, pools.center, 28, 64, 700, c.high, 2000, true)
   totalPlaced += placeFromPool(ctx, earWords, pools.ear, 56, 160, 700, c.high, 1000, true)
   totalPlaced += placeFromPool(ctx, eyeRingWords, pools.eyeRing, 72, 200, 700, ['#0a0a1a','#0d0d22','#08081c'], 1000, false)
 
-  // Light gap-fill: only edge pool for outline density
+  // Light gap-fill: edge + mid for outline density and left-side balance
   if (pools.edge.len > 0) {
-    totalPlaced += placeFromPool(ctx, words.slice(0, Math.floor(total * 0.3)), pools.edge, 5, 11, 400, c.low, 200, true)
+    totalPlaced += placeFromPool(ctx, words.slice(0, Math.floor(total * 0.3)), pools.edge, 5, 11, 400, c.low, 300, true)
+  }
+  if (pools.mid.len > 0) {
+    totalPlaced += placeFromPool(ctx, words.slice(0, Math.floor(total * 0.2)), pools.mid, 6, 14, 400, c.low, 200, true)
   }
 
   placedCount.value = placed.length
