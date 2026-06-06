@@ -1,236 +1,589 @@
 <template>
-  <div ref="chartRef" class="chart-container"></div>
+  <div class="wc-wrapper" :class="{ 'wc-wrapper--dark': isDark }">
+    <div class="wc-toolbar" v-if="showExport">
+      <button class="wc-btn" @click="exportPNG" title="导出 4K PNG">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        Export 4K
+      </button>
+      <button class="wc-btn" @click="toggleDark" title="切换深色模式">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></svg>
+      </button>
+    </div>
+    <div ref="containerRef" class="wc-canvas-wrap">
+      <canvas ref="canvasRef" class="wc-canvas" @click="handleClick"></canvas>
+    </div>
+  </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, watch } from 'vue'
-import * as echarts from 'echarts'
-import 'echarts-wordcloud'
+import { ref, computed, onMounted, onUnmounted, watch, nextTick } from 'vue'
 
+// ── Types ──
 export interface WordCloudItem {
   name: string
   value: number
 }
 
+interface PlacedWord {
+  text: string
+  x: number
+  y: number
+  w: number
+  h: number
+  fontSize: number
+  tier: 'high' | 'mid' | 'low'
+}
+
+interface Region {
+  name: string
+  contains(x: number, y: number): boolean
+}
+
 const props = withDefaults(defineProps<{
   data: WordCloudItem[]
   maxWords?: number
+  darkMode?: boolean
+  showExport?: boolean
 }>(), {
-  maxWords: 80,
+  maxWords: 120,
+  darkMode: undefined,
+  showExport: true,
 })
 
 const emit = defineEmits<{
   'word-click': [item: WordCloudItem]
 }>()
 
-const chartRef = ref<HTMLElement | null>(null)
-let chartInstance: echarts.ECharts | null = null
+// ── State ──
+const canvasRef = ref<HTMLCanvasElement | null>(null)
+const containerRef = ref<HTMLElement | null>(null)
+const darkOverride = ref(false)
+const placedWords = ref<PlacedWord[]>([])
+const INTERNAL_SIZE = 1024
 
-const COLORS = [
-  '#1e3a5f', '#475569', '#b8860b', '#722f37',
-  '#166534', '#334155', '#92400e', '#3b5998',
-  '#5b2c6f', '#1a5276', '#7d6608', '#943126',
-]
+const prefersDark = ref(false)
+let darkMQL: MediaQueryList | null = null
 
-function createPandaMask(): HTMLImageElement {
-  const s = 320
-  const canvas = document.createElement('canvas')
-  canvas.width = s
-  canvas.height = s
-  const ctx = canvas.getContext('2d')!
+const isDark = computed(() => {
+  if (props.darkMode !== undefined) return props.darkMode
+  if (darkOverride.value) return true
+  return prefersDark.value
+})
 
-  ctx.fillStyle = '#ffffff'
-
-  // ── Panda Head ──
-  // Large round head, slightly wider than tall for a cute panda look
-  const headCX = s / 2       // 160
-  const headCY = 172
-  const headRX = 130          // wider horizontally
-  const headRY = 120          // slightly compressed vertically
-  ctx.beginPath()
-  ctx.ellipse(headCX, headCY, headRX, headRY, 0, 0, Math.PI * 2)
-  ctx.fill()
-
-  // ── Left Ear ──
-  // Round ear at upper-left of head
-  const earRadius = 38
-  const leftEarCX = headCX - headRX * 0.62   // ~79
-  const leftEarCY = headCY - headRY * 0.85    // ~70
-  ctx.beginPath()
-  ctx.arc(leftEarCX, leftEarCY, earRadius, 0, Math.PI * 2)
-  ctx.fill()
-
-  // ── Right Ear ──
-  // Round ear at upper-right of head
-  const rightEarCX = headCX + headRX * 0.62  // ~241
-  const rightEarCY = headCY - headRY * 0.85   // ~70
-  ctx.beginPath()
-  ctx.arc(rightEarCX, rightEarCY, earRadius, 0, Math.PI * 2)
-  ctx.fill()
-
-  // ── Eye Patches (cut holes) ──
-  // Use destination-out to punch transparent holes for panda's dark eye patches
-  ctx.globalCompositeOperation = 'destination-out'
-  const eyePatchRX = 36
-  const eyePatchRY = 42
-  const leftEyeCX = headCX - headRX * 0.35
-  const leftEyeCY = headCY - 6
-  ctx.beginPath()
-  ctx.ellipse(leftEyeCX, leftEyeCY, eyePatchRX, eyePatchRY, -0.2, 0, Math.PI * 2)
-  ctx.fill()
-
-  const rightEyeCX = headCX + headRX * 0.35
-  const rightEyeCY = headCY - 6
-  ctx.beginPath()
-  ctx.ellipse(rightEyeCX, rightEyeCY, eyePatchRX, eyePatchRY, 0.2, 0, Math.PI * 2)
-  ctx.fill()
-
-  // ── Nose (cut hole) ──
-  // Small triangular nose hole
-  const noseCX = headCX
-  const noseCY = headCY + 20
-  ctx.beginPath()
-  ctx.moveTo(noseCX - 16, noseCY - 8)
-  ctx.lineTo(noseCX + 16, noseCY - 8)
-  ctx.lineTo(noseCX, noseCY + 14)
-  ctx.closePath()
-  ctx.fill()
-
-  // ── Mouth (cut hole) ──
-  // Inverted Y line below nose
-  ctx.beginPath()
-  ctx.moveTo(noseCX, noseCY + 14)
-  ctx.lineTo(noseCX, noseCY + 40)
-  ctx.lineWidth = 5
-  ctx.strokeStyle = '#000000'
-  ctx.stroke()
-  // Mouth curves
-  ctx.beginPath()
-  ctx.moveTo(noseCX - 22, noseCY + 32)
-  ctx.quadraticCurveTo(noseCX - 6, noseCY + 44, noseCX, noseCY + 40)
-  ctx.lineWidth = 5
-  ctx.strokeStyle = '#000000'
-  ctx.stroke()
-  ctx.beginPath()
-  ctx.moveTo(noseCX + 22, noseCY + 32)
-  ctx.quadraticCurveTo(noseCX + 6, noseCY + 44, noseCX, noseCY + 40)
-  ctx.lineWidth = 5
-  ctx.strokeStyle = '#000000'
-  ctx.stroke()
-
-  // Restore default composite operation
-  ctx.globalCompositeOperation = 'source-over'
-
-  const img = new Image()
-  img.src = canvas.toDataURL()
-  return img
+function toggleDark() {
+  darkOverride.value = !darkOverride.value
+  nextTick(() => render())
 }
 
-function getChartOption(maskImg: HTMLImageElement): echarts.EChartsOption {
-  const items = [...props.data]
+// ── Ink-wash color palette ──
+interface ColorScheme {
+  bg: string
+  highFreq: string[]
+  midFreq: string[]
+  lowFreq: string[]
+  bambooStroke: string
+  bambooFill: string
+}
+
+const lightColors: ColorScheme = {
+  bg: 'transparent',
+  highFreq: ['#1a1a2e', '#16213e', '#0f3460', '#1a1a2e', '#2d2d44'],
+  midFreq: ['#3d3d5c', '#4a4a6a', '#5c5c7a', '#3a3a52', '#4e4e68'],
+  lowFreq: ['#7a7a95', '#8a8aa5', '#9a9ab0', '#85859a', '#9090a5'],
+  bambooStroke: 'rgba(140,160,140,0.25)',
+  bambooFill: 'rgba(160,185,155,0.12)',
+}
+
+const darkColors: ColorScheme = {
+  bg: '#0f0f14',
+  highFreq: ['#e8e8f0', '#f0f0f8', '#d8d8e8', '#e0e0ee', '#ececf4'],
+  midFreq: ['#a0a0b8', '#b0b0c4', '#9898b0', '#a8a8bc', '#b8b8c8'],
+  lowFreq: ['#606078', '#686880', '#707088', '#585870', '#787890'],
+  bambooStroke: 'rgba(60,75,60,0.35)',
+  bambooFill: 'rgba(50,65,50,0.18)',
+}
+
+function colors(): ColorScheme {
+  return isDark.value ? darkColors : lightColors
+}
+
+// ── Region map (熊猫区域) ──
+function buildRegions(): { high: Region[]; mid: Region[]; low: Region[] } {
+  const S = INTERNAL_SIZE
+  const headCX = S / 2        // 512
+  const headCY = 560
+  const headRX = 410
+  const headRY = 380
+
+  // High-frequency regions: ears + eye patches + nose
+  const high: Region[] = [
+    {
+      name: 'leftEar',
+      contains: (x, y) => {
+        const dx = x - 290, dy = y - 240
+        return dx * dx + dy * dy <= 130 * 130
+      },
+    },
+    {
+      name: 'rightEar',
+      contains: (x, y) => {
+        const dx = x - 734, dy = y - 240
+        return dx * dx + dy * dy <= 130 * 130
+      },
+    },
+    {
+      name: 'leftEye',
+      contains: (x, y) => {
+        const dx = x - 378, dy = y - 540
+        return (dx * dx) / (118 * 118) + (dy * dy) / (135 * 135) <= 1
+      },
+    },
+    {
+      name: 'rightEye',
+      contains: (x, y) => {
+        const dx = x - 646, dy = y - 540
+        return (dx * dx) / (118 * 118) + (dy * dy) / (135 * 135) <= 1
+      },
+    },
+    {
+      name: 'nose',
+      contains: (x, y) => {
+        const nx = 512, ny = 620, hw = 50, hh = 40
+        if (y < ny - hh || y > ny + hh) return false
+        const dx = Math.abs(x - nx)
+        const maxW = hw * (1 - (y - (ny - hh)) / (2 * hh))
+        return dx <= maxW
+      },
+    },
+  ]
+
+  // Mid-frequency region: panda head body
+  const mid: Region[] = [
+    {
+      name: 'head',
+      contains: (x, y) => {
+        const dx = (x - headCX) / headRX
+        const dy = (y - headCY) / headRY
+        return dx * dx + dy * dy <= 1
+      },
+    },
+  ]
+
+  // Low-frequency region: everywhere else on canvas
+  const low: Region[] = [
+    {
+      name: 'background',
+      contains: (x, y) => {
+        // Outside panda head but inside canvas
+        const dx = (x - headCX) / headRX
+        const dy = (y - headCY) / headRY
+        if (dx * dx + dy * dy <= 1) return false
+        return x >= 40 && x <= S - 40 && y >= 40 && y <= S - 40
+      },
+    },
+  ]
+
+  return { high, mid, low }
+}
+
+// ── Bamboo leaf drawing ──
+function drawBambooLeaves(ctx: CanvasRenderingContext2D) {
+  const c = colors()
+  const leaves: Array<{ cx: number; cy: number; angle: number; scale: number }> = [
+    { cx: 80, cy: 120, angle: 0.6, scale: 1.0 },
+    { cx: 920, cy: 100, angle: -0.5, scale: 0.9 },
+    { cx: 60, cy: 400, angle: 0.3, scale: 0.7 },
+    { cx: 960, cy: 380, angle: -0.7, scale: 0.8 },
+    { cx: 150, cy: 750, angle: 0.8, scale: 0.9 },
+    { cx: 880, cy: 720, angle: -0.4, scale: 0.75 },
+    { cx: 100, cy: 900, angle: 1.0, scale: 0.85 },
+    { cx: 940, cy: 880, angle: -0.9, scale: 0.7 },
+    { cx: 200, cy: 950, angle: 0.5, scale: 0.6 },
+    { cx: 800, cy: 940, angle: -0.6, scale: 0.65 },
+  ]
+
+  ctx.save()
+  for (const leaf of leaves) {
+    const len = 90 * leaf.scale
+    const wid = 14 * leaf.scale
+    ctx.save()
+    ctx.translate(leaf.cx, leaf.cy)
+    ctx.rotate(leaf.angle)
+
+    // Leaf body (teardrop)
+    ctx.beginPath()
+    ctx.moveTo(0, 0)
+    ctx.bezierCurveTo(wid * 0.4, -len * 0.3, wid, -len * 0.6, 0, -len)
+    ctx.bezierCurveTo(-wid, -len * 0.6, -wid * 0.4, -len * 0.3, 0, 0)
+    ctx.fillStyle = c.bambooFill
+    ctx.fill()
+
+    // Leaf vein
+    ctx.beginPath()
+    ctx.moveTo(0, -4)
+    ctx.lineTo(0, -len + 10)
+    ctx.strokeStyle = c.bambooStroke
+    ctx.lineWidth = 1.2 * leaf.scale
+    ctx.stroke()
+
+    ctx.restore()
+  }
+  ctx.restore()
+}
+
+// ── Word placement ──
+function randomPointInRegion(region: Region, maxTries = 200): { x: number; y: number } | null {
+  const S = INTERNAL_SIZE
+  for (let i = 0; i < maxTries; i++) {
+    const x = 40 + Math.random() * (S - 80)
+    const y = 40 + Math.random() * (S - 80)
+    if (region.contains(x, y)) return { x, y }
+  }
+  return null
+}
+
+function overlaps(newBox: { x: number; y: number; w: number; h: number }, existing: PlacedWord[]): boolean {
+  const pad = 3
+  for (const pw of existing) {
+    if (
+      newBox.x - pad < pw.x + pw.w &&
+      newBox.x + newBox.w + pad > pw.x &&
+      newBox.y - pad < pw.y + pw.h &&
+      newBox.y + newBox.h + pad > pw.y
+    ) {
+      return true
+    }
+  }
+  return false
+}
+
+function assignTier(index: number, total: number): 'high' | 'mid' | 'low' {
+  const ratio = index / total
+  if (ratio < 0.12) return 'high'
+  if (ratio < 0.65) return 'mid'
+  return 'low'
+}
+
+function fontSizeForTier(tier: 'high' | 'mid' | 'low', value: number, maxVal: number): number {
+  const norm = value / maxVal
+  switch (tier) {
+    case 'high': return 28 + norm * 24   // 28-52
+    case 'mid':  return 16 + norm * 16   // 16-32
+    case 'low':  return 10 + norm * 10   // 10-20
+  }
+}
+
+function colorForTier(tier: 'high' | 'mid' | 'low'): string {
+  const c = colors()
+  const arr = tier === 'high' ? c.highFreq : tier === 'mid' ? c.midFreq : c.lowFreq
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+function render() {
+  const canvas = canvasRef.value
+  if (!canvas || props.data.length === 0) return
+
+  const S = INTERNAL_SIZE
+  canvas.width = S
+  canvas.height = S
+  const ctx = canvas.getContext('2d')!
+
+  // Clear
+  const c = colors()
+  ctx.clearRect(0, 0, S, S)
+  if (c.bg !== 'transparent') {
+    ctx.fillStyle = c.bg
+    ctx.fillRect(0, 0, S, S)
+  }
+
+  // Sort data by value descending
+  const sorted = [...props.data]
     .sort((a, b) => b.value - a.value)
     .slice(0, props.maxWords)
 
-  if (items.length === 0) return {}
+  if (sorted.length === 0) return
 
-  const maxVal = items[0]?.value ?? 1
+  const maxVal = sorted[0]?.value ?? 1
+  const regions = buildRegions()
+  const placed: PlacedWord[] = []
+  const total = sorted.length
 
-  return {
-    tooltip: {
-      show: true,
-      backgroundColor: '#ffffff',
-      borderColor: '#f0f1f3',
-      textStyle: { color: '#1e293b', fontSize: 12 },
-      formatter: (p: any) => `${p.name}: ${p.value}`,
-    },
-    series: [{
-      type: 'wordCloud',
-      maskImage: maskImg,
-      width: '95%',
-      height: '90%',
-      sizeRange: [12, 48],
-      rotationRange: [-45, 45],
-      rotationStep: 45,
-      gridSize: 4,
-      drawOutOfBound: false,
-      layoutAnimation: true,
-      textStyle: {
-        fontFamily: 'Inter, PingFang SC, Microsoft YaHei, sans-serif',
-        fontWeight: '600',
-        color: () => COLORS[Math.floor(Math.random() * COLORS.length)],
-      },
-      emphasis: {
-        textStyle: {
-          fontSize: 20,
-          fontWeight: 'bold' as const,
-        },
-      },
-      data: items.map((d) => ({
-        name: d.name,
-        value: d.value,
-      })),
-    }],
-  }
-}
+  // Phase 1: render bamboo leaves (underneath)
+  drawBambooLeaves(ctx)
 
-function initOrUpdateChart(maskImg: HTMLImageElement) {
-  if (!chartRef.value) return
-  if (!chartInstance) {
-    chartInstance = echarts.init(chartRef.value)
-    chartInstance.on('click', (params: any) => {
-      if (params.name) {
-        emit('word-click', { name: params.name, value: params.value })
+  // Phase 2: place words
+  ctx.textBaseline = 'alphabetic'
+  ctx.textAlign = 'left'
+
+  for (let i = 0; i < sorted.length; i++) {
+    const word = sorted[i]
+    const tier = assignTier(i, total)
+    const fontSize = fontSizeForTier(tier, word.value, maxVal)
+    const fontColor = colorForTier(tier)
+    const fontWeight = tier === 'high' ? '700' : tier === 'mid' ? '500' : '400'
+
+    ctx.font = `${fontWeight} ${fontSize}px "PingFang SC", "Microsoft YaHei", "Noto Sans SC", sans-serif`
+    const metrics = ctx.measureText(word.name)
+    const tw = metrics.width
+    const th = fontSize * 1.2
+    const box = { w: tw, h: th }
+
+    // Pick region set for this tier
+    const regionSet = tier === 'high' ? regions.high : tier === 'mid' ? regions.mid : regions.low
+    if (regionSet.length === 0) continue
+
+    let placed_success = false
+
+    // Try up to 3 random regions from the set
+    const shuffledRegions = [...regionSet].sort(() => Math.random() - 0.5).slice(0, 3)
+    for (const region of shuffledRegions) {
+      const start = randomPointInRegion(region, 150)
+      if (!start) continue
+
+      // Archimedean spiral search
+      let found = false
+      let px = start.x
+      let py = start.y
+      const a = 2, b = 4
+      for (let step = 0; step < 2000; step++) {
+        const theta = step * 0.15
+        const r = a + b * theta
+        px = start.x + r * Math.cos(theta)
+        py = start.y + r * Math.sin(theta)
+
+        // Bounds check
+        if (px < 10 || py < 10 || px + tw > S - 10 || py + th > S - 10) continue
+
+        // Region containment
+        if (!region.contains(px + tw / 2, py + th / 2)) continue
+
+        // Collision check
+        const testBox = { x: px, y: py, w: tw, h: th }
+        if (!overlaps(testBox, placed)) {
+          found = true
+          break
+        }
       }
-    })
+
+      if (found) {
+        // Draw
+        ctx.fillStyle = fontColor
+        ctx.fillText(word.name, px, py + fontSize)
+
+        placed.push({
+          text: word.name,
+          x: px,
+          y: py,
+          w: tw,
+          h: th,
+          fontSize,
+          tier,
+        })
+        placed_success = true
+        break
+      }
+    }
+
+    // Fallback: try any region
+    if (!placed_success) {
+      const allRegions = [...regions.high, ...regions.mid, ...regions.low]
+      const shuffled = [...allRegions].sort(() => Math.random() - 0.5).slice(0, 5)
+      for (const region of shuffled) {
+        const start = randomPointInRegion(region, 100)
+        if (!start) continue
+
+        let found = false
+        let px = start.x, py = start.y
+        const a = 1, b = 5
+        for (let step = 0; step < 3000; step++) {
+          const theta = step * 0.12
+          const r = a + b * theta
+          px = start.x + r * Math.cos(theta)
+          py = start.y + r * Math.sin(theta)
+
+          if (px < 10 || py < 10 || px + tw > S - 10 || py + th > S - 10) continue
+          if (!region.contains(px + tw / 2, py + th / 2)) continue
+
+          const testBox = { x: px, y: py, w: tw, h: th }
+          if (!overlaps(testBox, placed)) {
+            found = true
+            break
+          }
+        }
+
+        if (found) {
+          ctx.fillStyle = c.lowFreq[0]
+          ctx.fillText(word.name, px, py + fontSize)
+          placed.push({
+            text: word.name,
+            x: px,
+            y: py,
+            w: tw,
+            h: th,
+            fontSize,
+            tier: 'low',
+          })
+          break
+        }
+      }
+    }
   }
-  chartInstance.setOption(getChartOption(maskImg), { notMerge: true })
-  chartInstance.resize()
+
+  placedWords.value = placed
 }
 
-function initChart() {
-  if (!chartRef.value || props.data.length === 0) return
-  const maskImg = createPandaMask()
-  if (maskImg.complete) {
-    initOrUpdateChart(maskImg)
-  } else {
-    maskImg.onload = () => initOrUpdateChart(maskImg)
+// ── Click detection ──
+function handleClick(e: MouseEvent) {
+  const canvas = canvasRef.value
+  if (!canvas || placedWords.value.length === 0) return
+
+  const rect = canvas.getBoundingClientRect()
+  const scaleX = INTERNAL_SIZE / rect.width
+  const scaleY = INTERNAL_SIZE / rect.height
+  const cx = (e.clientX - rect.left) * scaleX
+  const cy = (e.clientY - rect.top) * scaleY
+
+  for (const pw of placedWords.value) {
+    if (cx >= pw.x && cx <= pw.x + pw.w && cy >= pw.y && cy <= pw.y + pw.h) {
+      const match = props.data.find((d) => d.name === pw.text)
+      if (match) emit('word-click', match)
+      return
+    }
   }
 }
 
-function handleResize() {
-  chartInstance?.resize()
+// ── Export ──
+function exportPNG() {
+  const canvas = canvasRef.value
+  if (!canvas) return
+
+  const exportScale = 4  // 1024 * 4 = 4096 (4K)
+  const exportCanvas = document.createElement('canvas')
+  exportCanvas.width = INTERNAL_SIZE * exportScale
+  exportCanvas.height = INTERNAL_SIZE * exportScale
+  const ectx = exportCanvas.getContext('2d')!
+  ectx.scale(exportScale, exportScale)
+  ectx.drawImage(canvas, 0, 0)
+
+  const link = document.createElement('a')
+  link.download = 'panda-wordcloud-4k.png'
+  link.href = exportCanvas.toDataURL('image/png')
+  link.click()
 }
+
+defineExpose({ exportPNG, canvasRef })
+
+// ── Lifecycle ──
+let resizeObs: ResizeObserver | null = null
 
 onMounted(() => {
-  initChart()
-  window.addEventListener('resize', handleResize)
+  darkMQL = window.matchMedia('(prefers-color-scheme: dark)')
+  prefersDark.value = darkMQL.matches
+  darkMQL.addEventListener('change', (e) => {
+    prefersDark.value = e.matches
+    if (props.darkMode === undefined && !darkOverride.value) {
+      nextTick(() => render())
+    }
+  })
+
+  nextTick(() => render())
+
+  if (containerRef.value) {
+    resizeObs = new ResizeObserver(() => { /* canvas auto-scales via CSS */ })
+    resizeObs.observe(containerRef.value)
+  }
 })
 
 onUnmounted(() => {
-  window.removeEventListener('resize', handleResize)
-  chartInstance?.dispose()
+  resizeObs?.disconnect()
+  darkMQL?.removeEventListener('change', () => {})
 })
 
 watch(() => props.data, () => {
-  if (chartInstance) {
-    const maskImg = createPandaMask()
-    const applyOption = () => {
-      chartInstance?.setOption(getChartOption(maskImg), { notMerge: true })
-    }
-    if (maskImg.complete) {
-      applyOption()
-    } else {
-      maskImg.onload = applyOption
-    }
-  } else {
-    initChart()
-  }
+  nextTick(() => render())
 }, { deep: true })
+
+watch(() => props.maxWords, () => {
+  nextTick(() => render())
+})
+
+watch(isDark, () => {
+  nextTick(() => render())
+})
 </script>
 
 <style scoped>
-.chart-container {
+.wc-wrapper {
+  position: relative;
   width: 100%;
-  height: 420px;
+  border-radius: 16px;
+  overflow: hidden;
+}
+
+.wc-wrapper--dark {
+  background: #0f0f14;
+}
+
+.wc-toolbar {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  z-index: 10;
+  display: flex;
+  gap: 6px;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.wc-wrapper:hover .wc-toolbar {
+  opacity: 1;
+}
+
+.wc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 30px;
+  padding: 0 12px;
+  border: 1px solid rgba(0, 0, 0, 0.08);
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(8px);
+  color: #475569;
+  font-size: 11px;
+  font-weight: 500;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.wc-btn:hover {
+  background: #ffffff;
+  color: #1e293b;
+  border-color: rgba(0, 0, 0, 0.15);
+}
+
+.wc-wrapper--dark .wc-btn {
+  background: rgba(30, 30, 40, 0.85);
+  border-color: rgba(255, 255, 255, 0.08);
+  color: #a0a0b0;
+}
+
+.wc-wrapper--dark .wc-btn:hover {
+  background: rgba(40, 40, 50, 0.95);
+  color: #e0e0e0;
+}
+
+.wc-canvas-wrap {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 520px;
+}
+
+.wc-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
 }
 </style>
