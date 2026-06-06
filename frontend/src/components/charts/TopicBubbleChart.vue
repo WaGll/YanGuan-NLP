@@ -33,7 +33,7 @@ echarts.use([ScatterChart, TitleComponent, TooltipComponent, GridComponent, Visu
 // ---------------------------------------------------------------------------
 export interface TopicBubbleDataItem {
   topic_index: number
-  label: string
+  label: string | null
   business_label?: string | null
   coherence_score: number | null
   doc_count: number

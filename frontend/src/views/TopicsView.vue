@@ -10,6 +10,11 @@
           <el-radio-button value="lda">LDA</el-radio-button>
           <el-radio-button value="bertopic">BERTopic</el-radio-button>
         </el-radio-group>
+        <el-divider direction="vertical" />
+        <el-radio-group v-model="viewMode" size="small">
+          <el-radio-button value="table">📋 列表</el-radio-button>
+          <el-radio-button value="bubble">🫧 气泡图</el-radio-button>
+        </el-radio-group>
       </div>
       <span class="filter-hint" @click="showTopicInfo">↗</span>
     </div>
@@ -32,6 +37,15 @@
     <!-- 空数据状态 -->
     <el-card v-else-if="store.topics.length === 0">
       <el-empty description="暂无主题数据，请先运行数据分析管道" />
+    </el-card>
+
+    <!-- 气泡图视图 -->
+    <el-card v-if="viewMode === 'bubble' && !store.loading && !store.error && store.topics.length > 0">
+      <TopicBubbleChart
+        :data="store.topics"
+        :loading="store.loading"
+        @topic-click="handleBubbleClick"
+      />
     </el-card>
 
     <!-- 主题表格 -->
@@ -132,9 +146,11 @@ import { ElMessage } from 'element-plus'
 import { useTopicsStore } from '@/stores/topics'
 import type { TopicItem } from '@/types/topics'
 import LoadingCard from '@/components/common/LoadingCard.vue'
+import TopicBubbleChart from '@/components/charts/TopicBubbleChart.vue'
 
 const store = useTopicsStore()
 
+const viewMode = ref<'table' | 'bubble'>('table')
 const dialogVisible = ref(false)
 
 const selectedTopicLabel = computed(() => {
@@ -164,6 +180,14 @@ function showTopicInfo() {
 function handleRowClick(row: TopicItem) {
   dialogVisible.value = true
   store.fetchTopicDetail(row)
+}
+
+function handleBubbleClick(topicIndex: number) {
+  const topic = store.topics.find(t => t.topic_index === topicIndex)
+  if (topic) {
+    dialogVisible.value = true
+    store.fetchTopicDetail(topic)
+  }
 }
 
 onMounted(() => {
